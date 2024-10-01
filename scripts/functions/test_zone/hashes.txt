@@ -1,0 +1,2 @@
+SHA1(./lab_input_arguments.sh)= b1883cbe22201dcd3a1580df8439b56d99f2b3cb
+SHA1(./lab_read_array.sh)= 30d715c418d39ac91fda507162388dab3df328d6
