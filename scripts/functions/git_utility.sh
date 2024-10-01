@@ -6,7 +6,7 @@ function git_commit_and_push_to_main (){
 	
 	#comments="$1"
 	git commit -am "$comments"
-	git push -u origin master # git push origin master # git push -u origin master
+	git push -u origin main # git push origin master # git push -u origin master
 	# git push -uf origin master # force
 	# git push origin HEAD:master
 	# git push origin HEAD:main
