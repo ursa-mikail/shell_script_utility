@@ -1,7 +1,8 @@
 function git_commit_and_push_to_main (){
 	git add .; git status	
 	
-	read -r -p "comments [e.g. updated: / added:] : "  comments
+	echo "comments [e.g. updated: / added:] : "
+	read -r comments
 	
 	#comments="$1"
 	git commit -am "$comments"
@@ -533,6 +534,11 @@ function fetch_from_remote() {
     git status
 
     echo "Fetching completed. You can merge changes from the remote branch if needed."
+}
+
+function force_all_updates(){
+	git fetch origin
+	git reset --hard origin/main
 }
 
 echo ""
