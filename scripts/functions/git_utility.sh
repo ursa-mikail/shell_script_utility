@@ -13,6 +13,36 @@ function git_commit_and_push_to_main (){
 	# git push origin <branch_name>
 }
 
+function fetch_and_check_diff(){
+	# Fetch the latest changes
+	git fetch origin
+
+	# Check for differences
+	DIFF=$(git diff --name-only origin/main)
+
+	if [ -z "$DIFF" ]; then
+	  echo "No differences found, safe to pull."
+	  # git pull origin main
+	else
+	  echo "Differences found:"
+	  echo "$DIFF"
+
+echo ""
+: <<'NOTE_BLOCK'
+	  	echo "Do you want to rebase local changes on top of the remote changes? (yes/no): " 
+	    read -r rebase_choice
+	    if [ "$rebase_choice" == "yes" ]; then
+	      echo "Rebasing..."
+	      git pull --rebase origin main
+	    else
+	      echo "Aborting the update."
+	      exit 1
+	    fi
+NOTE_BLOCK
+echo ""	
+	fi
+}
+
 # set_git_user_profile # Uses the default ~/.ssh/ directory
 # or
 # set_git_user_profile /path/to/your/keys/ # Specify a different directory
@@ -85,6 +115,62 @@ function git_conflict_resolution_advisory (){
 
 	"
 }
+
+function clear_git_logs() {
+    # Display warning message
+    echo "WARNING: This action will permanently delete all commit history from the current branch."
+    echo "         It will create a new branch with no history and force push it to the remote repository."
+    echo "Explain what will happen before proceeding a full flush and refresh:"
+    echo "         This is a destructive action and cannot be undone."    
+    echo "Are you sure you want to proceed? (yes/no): " 
+    read -r confirmation
+
+    # Check user confirmation
+    if [ "$confirmation" != "yes" ]; then
+        echo "Aborting operation."
+        exit 1
+    fi
+
+    # Step 1: Create a new orphan branch
+    git checkout --orphan new-branch
+    if [ $? -ne 0 ]; then
+        echo "Failed to create orphan branch. Aborting."
+        exit 1
+    fi
+
+    # Step 2: Remove all files from the staging area and working directory
+    git rm -rf .
+    if [ $? -ne 0 ]; then
+        echo "Failed to remove files. Aborting."
+        exit 1
+    fi
+
+    # Step 3: Add your files back and commit
+    git add .
+    git commit -m "Initial commit"
+    if [ $? -ne 0 ]; then
+        echo "Failed to commit changes. Aborting."
+        exit 1
+    fi
+
+    # Step 4: Delete the old branch and rename the new branch
+    git branch -D main  # Replace 'main' with the name of your old branch
+    git branch -m main  # Rename the new branch to 'main'
+    if [ $? -ne 0 ]; then
+        echo "Failed to rename branch. Aborting."
+        exit 1
+    fi
+
+    # Step 5: Force push to the remote repository
+    git push -f origin main  # Replace 'main' with the name of your branch
+    if [ $? -ne 0 ]; then
+        echo "Failed to push changes to remote repository. Aborting."
+        exit 1
+    fi
+
+    echo "Git logs cleared and new history pushed to remote repository successfully."
+}
+
 
 # check which repo in Github
 function git_which_repo (){
