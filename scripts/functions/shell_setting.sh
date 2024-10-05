@@ -12,6 +12,19 @@ function start_js_app() {
     /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome http://localhost:3000
 }
 
+function stop_js_app() {
+    # Find the PID of the node process running server.js
+    pid=$(pgrep -f "node server.js")
+    
+    if [ -z "$pid" ]; then
+        echo "No node server.js process found"
+    else
+        # Kill the process
+        kill "$pid"
+        echo "Stopped node server.js process with PID: $pid"
+    fi
+}
+
 function get_script_utility_version {
     file_path="$HOME/scripts/functions/version.txt"
 
