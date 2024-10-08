@@ -40,13 +40,13 @@ function start_flask_app() {
 
 function stop_flask_app() {
     # Find the PID of the py process running app.py
-    pid=$(pgrep -f "python app.py")
+    pid=$(pgrep -f "/opt/anaconda3/bin/python /opt/anaconda3/bin/flask run")
     
     if [ -z "$pid" ]; then
-        echo "No python app.py process found"
+        echo "No flask run process found"
     else
         # Kill the process
         kill "$pid"
-        echo "Stopped python app.py process with PID: $pid"
+        echo "Stopped flask run process with PID: $pid"
     fi
 }
