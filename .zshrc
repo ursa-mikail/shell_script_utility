@@ -1,9 +1,8 @@
+# version: 2024-10-07_2200hr_11sec
 
 export PATH=/opt/homebrew/bin:$PATH
 export PATH="/usr/local/opt/openssl/bin:$PATH"
-
-# version: 2024-10-05_0000hr_11sec
-export PATH=$PATH:'/cygdrive/c/Program Files/MySQL/MySQL Server 5.7/bin'
+# export PATH=$PATH:'/MySQL/MySQL Server 5.7/bin'
 
 source $HOME"/scripts/functions/parameters.sh"
 source $HOME"/scripts/include.sh" 

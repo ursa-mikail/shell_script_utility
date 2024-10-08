@@ -1,30 +1,3 @@
-function start_js_app() {
-    # Navigate to the project directory
-    # cd /path/to/random-number-app
-    
-    # Start the Node.js server in the background
-    node server.js &
-
-    # Give the server a moment to start
-    sleep 2
-
-    # Open the application in Chrome
-    /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome http://localhost:3000
-}
-
-function stop_js_app() {
-    # Find the PID of the node process running server.js
-    pid=$(pgrep -f "node server.js")
-    
-    if [ -z "$pid" ]; then
-        echo "No node server.js process found"
-    else
-        # Kill the process
-        kill "$pid"
-        echo "Stopped node server.js process with PID: $pid"
-    fi
-}
-
 function get_script_utility_version {
     file_path="$HOME/scripts/functions/version.txt"
 
