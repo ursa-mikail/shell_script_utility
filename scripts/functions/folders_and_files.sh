@@ -285,7 +285,7 @@ function check_folder_size() {
 
     echo "Overall size of '$folder_path':"
     du -sh "$folder_path"
-
+    echo "========================================================="
     echo "Including sizes of subdirectories:"
     du -h "$folder_path"/*
 }
