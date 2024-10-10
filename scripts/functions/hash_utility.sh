@@ -2,13 +2,17 @@
 # function pack_n_sha { get_timestamp ; tar -cvzf "$1"_$time_stamp.tar .; sha256_result=$(openssl dgst -$hash_algo "$1"_$time_stamp.tar); echo $sha256_result; }
 
 function hash_message(){
-	if [ "$message_input" == "" ] 
-		then
-			message_input=$1
-	fi
-	
-	echo $message_input | openssl $hash_algo | awk '{print $2}'
-	ANS=$(echo $message_input | openssl $hash_algo | awk '{print $2}')
+    message_input=$1
+    
+    if [ -z "$message_input" ]; then
+        echo "Please provide a message to hash."
+        return 1
+    fi
+    
+    hash_algo=${hash_algo:-sha256} # Default to sha256 if not set
+
+    ANS=$(echo -n "$message_input" | openssl dgst -$hash_algo | awk '{print $2}')
+    echo $ANS
 }
 
 function hash_file_with_prompt(){
