@@ -270,3 +270,25 @@ function estimate_file_compression(){
 	
 }
 
+function check_folder_size() {
+    folder_path=$1
+
+    if [ -z "$folder_path" ]; then
+        echo "Please provide a folder path."
+        return 1
+    fi
+
+    if [ ! -d "$folder_path" ]; then
+        echo "The specified path '$folder_path' is not a directory."
+        return 1
+    fi
+
+    echo "Overall size of '$folder_path':"
+    du -sh "$folder_path"
+
+    echo "Including sizes of subdirectories:"
+    du -h "$folder_path"/*
+}
+
+
+

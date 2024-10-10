@@ -345,7 +345,8 @@ COMMENT_SET_TERMINAL_TITLE_FOR_MAC
 echo ""
 
 function open_new_window() {
-	open -a Terminal "$(which zsh)";
+	#open -a Terminal "$(which zsh)";
+    open -a Terminal "$(pwd)";
 }
 
 function get_env_vars () {
