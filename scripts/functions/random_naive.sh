@@ -56,9 +56,19 @@ function seed_random_with_pid() {
 }
 
 function generate_random_text() {
-	number_of_characters="$1"
-	text_random=$(cat /dev/urandom | tr -dc '"a-zA-Z 0-9~`@#$%^&*()_+=-{}[]|\:;<>,./?\\' | fold -w $number_of_characters | head -n 1)
-	
-	echo $text_random
+    number_of_characters="$1"
+    
+    # Define the set of characters to choose from
+    charset='a-zA-Z0-9~`@#$%^&*()_+=-{}[]|\:;<>,./?'
+    
+    # Generate random text
+    # text_random=$(cat /dev/urandom | tr -dc "$charset" | fold -w "$number_of_characters" | head -n 1)
+
+    # If you still face issues, you can try a fallback method using base64
+    # Uncomment the lines below to use base64 if the previous line fails
+    text_random=$(head -c "$number_of_characters" /dev/urandom | base64 | tr -dc "$charset" | cut -c1-"$number_of_characters")
+
+    echo "$text_random"
 }
+
 
