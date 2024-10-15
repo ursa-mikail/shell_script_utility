@@ -150,5 +150,48 @@ function decipher_message_file_and_check_hash () {
 		echo $file_ciphered_with_path " does not exist."
 	fi;	
 	
-	
+}
+
+# Function to cipher a folder after zipping it and display its hash
+function cipher_folder_zipped_and_hash() {
+    echo "Suggested key for ciphering: "
+    generate_random_hex 50
+    echo "============================================"
+
+    echo "Enter the folder (path) to be ciphered: "
+    read -r folder_to_be_ciphered_in
+
+    # Check if the folder exists
+    if [[ ! -d "$folder_to_be_ciphered_in" ]]; then
+        echo "Folder not found: $folder_to_be_ciphered_in"
+        return
+    fi
+    
+    # Check if the input path is '.'
+    if [[ "$folder_to_be_ciphered_in" == "." ]]; then
+        current_folder_name=$(basename "$PWD")
+        echo "Renaming '.' to current folder name: $current_folder_name"
+        folder_zipped_to_be_ciphered_in="${current_folder_name}.zip"
+    else
+        folder_zipped_to_be_ciphered_in="${folder_to_be_ciphered_in}.zip"
+    fi    
+
+    # ZIP the folder before ciphering
+    zip -r "$folder_zipped_to_be_ciphered_in" "$folder_to_be_ciphered_in"
+    echo "Zipped file output: $folder_zipped_to_be_ciphered_in"
+
+    # Get the hash of the zipped file
+    hash_of_file=$(get_file_sha "$folder_zipped_to_be_ciphered_in")
+    echo "Hash of zipped folder: $hash_of_file"
+
+    # Cipher the zipped file
+    file_ciphered_out="${folder_zipped_to_be_ciphered_in}.enc"
+    cipher_file "$folder_zipped_to_be_ciphered_in" "$file_ciphered_out"
+    echo "Ciphered file output: $file_ciphered_out"
+}
+
+
+# Function to decipher a folder and verify its hash, then unzip it
+function decipher_folder_zipped_and_hash() {
+    decipher_file_zipped_and_hash;
 }
