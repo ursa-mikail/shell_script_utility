@@ -224,23 +224,48 @@ function compute_hash_of_paragraphs () {
 	rm -rf $tmp_file_for_hash
 }
 
-function compare_hashes () {
-	tmp_file_for_hash_00=./scripts/data/tmp_00.txt
-	tmp_file_for_hash_01=./scripts/data/tmp_01.txt
-	touch $tmp_file_for_hash_00
-	touch $tmp_file_for_hash_01
-	
-	read -p "Enter hash 00: " hash_00
-	read -p "Enter hash 01: " hash_01
-	
-	echo "$hash_00" > $tmp_file_for_hash_00
-	echo "$hash_01" > $tmp_file_for_hash_01
-	
-	diff $tmp_file_for_hash_00 $tmp_file_for_hash_01 --color=always
-	
-	echo ""
-	rm -rf $tmp_file_for_hash_00 $tmp_file_for_hash_01
+function compare_hashes_of_2_files() {
+    # Ask for the locations of the two files
+    echo "Enter the path for the first file:"
+    read file_00
+    echo "Enter the path for the second file:"
+    read file_01
+
+    # Check if both files exist
+    if [[ ! -f $file_00 ]]; then
+        echo "File not found: $file_00"
+        return 1
+    fi
+
+    if [[ ! -f $file_01 ]]; then
+        echo "File not found: $file_01"
+        return 1
+    fi
+
+    # Create temporary files for the hashes
+    tmp_file_for_hash_00=$(mktemp)
+    tmp_file_for_hash_01=$(mktemp)
+
+    # Calculate the hashes of the two files and store them in the temporary files
+    hash_file "$file_00" > "$tmp_file_for_hash_00"
+    hash_file "$file_01" > "$tmp_file_for_hash_01"
+
+    # Show the hashes
+    echo "Hash of $file_00: $(cat "$tmp_file_for_hash_00")"
+    echo "Hash of $file_01: $(cat "$tmp_file_for_hash_01")"
+
+    # Compare the hashes and show the diff
+    if diff_output=$(diff $tmp_file_for_hash_00 $tmp_file_for_hash_01 --color=always); then
+        echo "No differences (hashes are identical)."
+    else
+        echo "Differences in hashes:"
+        echo "$diff_output"
+    fi
+    
+    # Clean up temporary files
+    rm -f "$tmp_file_for_hash_00" "$tmp_file_for_hash_01"
 }
+
 
 function compare_contents () {
 	tmp_file_for_contents_00=./scripts/data/tmp_file_for_contents_00.txt
