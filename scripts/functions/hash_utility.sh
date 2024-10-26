@@ -226,10 +226,14 @@ function compute_hash_of_paragraphs () {
 
 function compare_hashes_of_2_files() {
     # Ask for the locations of the two files
-    echo "Enter the path for the first file:"
+    echo "Enter the path for the first file (use ~ for home directory):"
     read file_00
-    echo "Enter the path for the second file:"
+    echo "Enter the path for the second file (use ~ for home directory):"
     read file_01
+
+    # Expand ~ to the full home directory path
+    file_00="${file_00/#\~/$HOME}"
+    file_01="${file_01/#\~/$HOME}"
 
     # Check if both files exist
     if [[ ! -f $file_00 ]]; then
@@ -261,7 +265,7 @@ function compare_hashes_of_2_files() {
         echo "Differences in hashes:"
         echo "$diff_output"
     fi
-    
+
     # Clean up temporary files
     rm -f "$tmp_file_for_hash_00" "$tmp_file_for_hash_01"
 }
