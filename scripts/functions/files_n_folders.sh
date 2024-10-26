@@ -4,8 +4,8 @@ alias goto="dir=%1; cd "${dir//\\//}""
 ## a quick way to get out of current directory ## 
 alias ..="cd .." 
 alias .2="cd ../../"
-alias .3="cd ../../../" 
-alias .4="cd ../../../../" 
+alias .3="cd ../../../"
+alias .4="cd ../../../../"
 alias .5="cd ../../../../.."
 #alias opendir="echo 'Opening current directory...'; explorer ."
 alias opendir="echo 'Opening current directory...'; open ."
@@ -39,11 +39,18 @@ function display_file_in_folder() {
         return 1
     fi
 
-    # Find all files and store them in an array
+    # Use a temporary file for storing file paths
+    temp_file=$(mktemp)
+    find "$folder_path" -type f -print0 > "$temp_file"
+
+    # Populate the array from the temporary file
     files=()
-    while IFS= read -r -d $'\0'; do
-        files+=("$REPLY")
-    done < <(find "$folder_path" -type f -print0)
+    while IFS= read -r -d '' file; do
+        files+=("$file")
+    done < "$temp_file"
+
+    # Clean up the temporary file
+    rm -f "$temp_file"
 
     if [ ${#files[@]} -eq 0 ]; then
         echo "No files found in $folder_path"
@@ -60,35 +67,28 @@ function display_file_in_folder() {
     done
 
     # Prompt the user to choose a file
-    #read -p "Enter the number of the file you want to display: " choice # mac cannot use read -p
     echo -n "Enter the number of the file you want to display: "
-    read choice   
+    read choice
 
     # Validate the user's choice
-    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "${#files[@]}" ]; then
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#files[@]} )); then
         echo "Invalid choice"
         return 1
     fi
 
-	# Validate the user's choice
-	if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#files[@]} )); then
-    	echo "Invalid choice"
-    	return 1
-	fi
-
     # Display the chosen file's contents
-    chosen_file="${files[$((choice))]}"  # Get the chosen file from the array
-       
-     # Debugging: Print the chosen file
-    echo "Debug: Chosen file index: $((choice))"
+    chosen_file="${files[$((choice - 1))]}"  # Adjust for array index
+
+    # Debugging: Print the chosen file
+    echo "Debug: Chosen file index: $((choice - 1))"
     echo "Debug: Chosen file: $chosen_file"
-          
+
     # Check if the chosen file is valid
     if [ -z "$chosen_file" ]; then
         echo "No file found for the given choice."
         return 1
     fi
-       
+
     echo "Displaying contents of $chosen_file:"
     cat "$chosen_file"  # Display the content of the chosen file
 }

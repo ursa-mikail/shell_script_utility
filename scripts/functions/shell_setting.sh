@@ -41,7 +41,8 @@ function list_functions_in_shell_script {
 }
 
 # Sample usage: list_functions_in_shell_scripts_given_folder 'scripts/functions'
-function list_functions_in_shell_scripts_given_folder {
+# Sample usage: list_functions_in_shell_scripts_given_folder 'scripts/functions'
+function list_functions_in_shell_scripts_given_folder () {
     if [ -z "$1" ]; then
         echo "Folder path required"
         echo "Usage: list_functions_in_shell_scripts_given_folder <folder_path>"
@@ -55,33 +56,34 @@ function list_functions_in_shell_scripts_given_folder {
         return 1
     fi
 
-    # Find all .sh files and store them in an array
-    sh_files=()
-    while IFS= read -r -d $'\0'; do
-        sh_files+=("$REPLY")
-    done < <(find "$folder_path" -type f -name "*.sh" -print0)
+    # Find all .sh files and store them in a temporary file
+    temp_file=$(mktemp)
+    find "$folder_path" -type f -name "*.sh" -print0 > "$temp_file"
 
-    if [ ${#sh_files[@]} -eq 0 ]; then
-        echo "No .sh files found in $folder_path"
-        return 1
-    fi
-
-    # Iterate over the array and call list_functions_in_shell_script for each file
+    # Read from the temporary file
     index=1
-    for file in "${sh_files[@]}"; do
+    while IFS= read -r -d '' file; do
         echo "=================================================================="
         echo "File #$index: $file"
         list_functions_in_shell_script "$file"
         ((index++))
-    done
-    
+    done < "$temp_file"
+
+    # Clean up the temporary file
+    rm -f "$temp_file"
 }
+
+# Dummy example of list_functions_in_shell_script function
+function list_functions_in_shell_script () {
+    grep -E '^\s*function\s+\w+\s*\(' "$1"
+}
+
 
 # Sample usage: list_shell_scripts_given_folder 'scripts/functions'
 function list_shell_scripts_given_folder {
     if [ -z "$1" ]; then
         echo "Folder path required"
-        echo "Usage: list_functions_in_shell_scripts_given_folder <folder_path>"
+        echo "Usage: list_shell_scripts_given_folder <folder_path>"
         return 1
     fi
 
@@ -92,64 +94,80 @@ function list_shell_scripts_given_folder {
         return 1
     fi
 
-	# Find all .sh files and store them in an array
+    # Find all .sh files and store them in a temporary file
+    temp_file=$(mktemp)
+    find "$folder_path" -type f -name "*.sh" -print0 > "$temp_file"
+
+    # Read the list of .sh files from the temporary file into an array
     sh_files=()
-    while IFS= read -r -d $'\0'; do
-        sh_files+=("$REPLY")
-    done < <(find "$folder_path" -type f -name "*.sh" -print0)
+    while IFS= read -r -d '' file; do
+        sh_files+=("$file")
+    done < "$temp_file"
+
+    # Clean up the temporary file
+    rm -f "$temp_file"
 
     if [ ${#sh_files[@]} -eq 0 ]; then
         echo "No .sh files found in $folder_path"
         return 1
     fi
 
-    #sh_files=$(find "$folder_path" -type f -name "*.sh")
-
-    echo 'shell script files in folder: ' "$sh_files"
+    echo 'Shell script files in folder:'
     echo '----------------------------------------------------------------------'
 
-    # Iterate over the array and call list_functions_in_shell_script for each file
-    #for file in "${sh_files[@]}"; do
-    #    list_functions_in_shell_script "$file"
-    #done
-     # Iterate over the array list each file
+    # Iterate over the array and list each file
     index=1
     for file in "${sh_files[@]}"; do
         echo "File #$index: $file"
-        #list_functions_in_sh "$file"
         ((index++))
     done
 
     ((index--))
     echo ''
-    echo 'Total shell_script files: ' "$index"
+    echo "Total shell script files: $index"
     echo ''
 }
 
 # Reload the shell configuration
 #source ~/.bashrc  # or source ~/.zshrc
 
-# $ list_bash_functions | delete_lines_from_to 75 80 | cat -n # --number
-function list_bash_functions() {
-	#echo ""
-	#echo "======================"
-	#echo "List of bash functions"
-    #echo "======================"
-	# eval "compgen -A function" 
-	bash -c "compgen -c"
+echo ""
+: <<'COMMENT_'
+
+% list_zsh_functions_enumerated
+% where_is_function compute_hash_of_paragraphs
+==================================================================
+File: /scripts/functions//hash_utility.sh
+Line: 209
+function compute_hash_of_paragraphs () {
+
+number_of_lines_found:        1
+
+COMMENT_
+echo ""
+
+# $ list_zsh_functions | delete_lines_from_to 75 80 | cat -n # --number
+# Function to list all functions in Zsh, clean output
+function list_zsh_functions() {
+    echo "======================"
+    echo "List of Zsh functions"
+    echo "======================"
+
+    # List all functions with typeset
+    typeset -f | awk 'NF {print $3}'  # Print only function names
 }
 
-function list_bash_functions_enumerated() {
+function list_zsh_functions_enumerated() {
 	echo ""
 	echo "======================"
 	echo "List of bash functions"
     echo "======================"
-	list_bash_functions | grep -v gawk | cat -n
+	list_zsh_functions | grep -v gawk | cat -n
 }
 
 function search_function () {
 	keyword="$1"
-	list_bash_functions | seek_further $keyword
+	list_zsh_functions | seek_further $keyword
 }
 
 # Usage: where_is_function find_bash
@@ -162,11 +180,11 @@ function where_is_function(){
 
 #^ (circumflex or caret) inside square brackets negates expression : eg, [^Ff] means anything except upper or lower case F and [^a-z] means everything except lower case a-z.
 
-#$ list_bash_functions | grep '[*’$substring’]' --color # contains
-#$ list_bash_functions | grep 'in[‘$list_of_characters’]' --color # contains characters such as ...
-#$ list_bash_functions | grep '^'$substring’’ --color # starts with 
-#$ list_bash_functions | grep $substring'$' --color # ends with
-#$ list_bash_functions | grep $substring --color # matches
+#$ list_zsh_functions | grep '[*’$substring’]' --color # contains
+#$ list_zsh_functions | grep 'in[‘$list_of_characters’]' --color # contains characters such as ...
+#$ list_zsh_functions | grep '^'$substring’’ --color # starts with 
+#$ list_zsh_functions | grep $substring'$' --color # ends with
+#$ list_zsh_functions | grep $substring --color # matches
 
 # Sample usage: seek 'bash_func' 'scripts'
 # Sample usage: seek "index" ./scripts/functions | seek_further '\+'
@@ -273,28 +291,32 @@ function kill_process() {
   fi
 }
 
-function find_bash_function_in_list(){
-	read   -p "Input keyword (e.g. update*):" keyword
-	echo 'Found (if not empty or NIL): '
-	if [ ! -z "$keyword" ] # not empty 
-		then : # 
-			echo '=========== [start] ==========='
-			search_function "$keyword";
-			echo '============ [end] ============'	
-		else : # $1 was not given 
-			echo '=========== [start] ==========='
-			list_bash_functions 
-			echo '============ [end] ============'		
-	fi
- 
+# Function to find or list shell functions based on a keyword
+function find_shell_function_in_list(){
+    echo "Input keyword (e.g., update*):"
+    read -r keyword
+
+    echo "Found (if not empty or NIL):"
+
+    # Check if the keyword is not empty
+    if [ -n "$keyword" ]; then
+        echo '=========== [start] ==========='
+        search_function "$keyword"
+        echo '============ [end] ============'
+    else
+        echo '=========== [start] ==========='
+        list_zsh_functions
+        echo '============ [end] ============'
+    fi
 }
 
-function locate_bash_function_in_list(){
+
+function locate_zsh_function_in_list(){
 	keyword="$1"
 	if [ ! -z $keyword ] # not empthy 
 		then : # 
 			echo '=========== [start] ==========='
-			list_bash_functions | seek_further "$keyword"
+			list_zsh_functions | seek_further "$keyword"
 			echo ""
 			read   -p "select function from candidate list above:" keyword			
 			echo ""
@@ -303,19 +325,19 @@ function locate_bash_function_in_list(){
 			echo '============ [end] ============'	
 		else : # $1 was not given 
 			echo '=========== [start] ==========='
-			list_bash_functions 
+			list_zsh_functions 
 			echo '============ [end] ============'		
 	fi
  
 }
 
 #
-#		read -r -p "keyword for list_bash_functions [e.g. read] (enter nothing to list ALL) : "  word_to_search
+#		read -r -p "keyword for list_zsh_functions [e.g. read] (enter nothing to list ALL) : "  word_to_search
 #		# echo $word_to_search
 #		
 #		if [ "$word_to_search" = '' ]
 #		then
-#			compgen -A function # list_bash_functions
+#			compgen -A function # list_zsh_functions
 #		else
 #			compgen -A function | grep $word_to_search
 #		fi
@@ -453,16 +475,16 @@ function clr_history () {
 	echo "history cleared."
 }
 
-function refresh_bashrc(){
+function refresh_shell(){
 	time_stamp=$(date +"%Y-%m-%d_%H%Mhr_%S"sec) ; 
 	
 	echo ""
 	echo "Refreshing bashrc"
 	echo $time_stamp; 
-	eval ". "$HOME"/.bashrc"
+	eval ". "$HOME"/.zshrc"
 }
 
 function exit_program_for_menu() {
 	printf "\n quit.\n"
-	echo 'X' : quitprogram
+	echo 'X' : return # quitprogram: return to command line
 }
