@@ -5,7 +5,6 @@ level_3_above='../../../'
 level_4_above='../../../../'
 level_5_above='../../../../../'
 
-
 #$ target_folder='dev'
 #$folder_name=$(pwd)/$level_2_above$target_folder
 #$ check_if_folder_exists
@@ -244,18 +243,23 @@ function zip_folder(){
 	zip -r "$current_folder_name"_$time_stamp.zip .; 
 }
 
-function zip_file(){
-	if [ "$1" == "" ] # not specified 
-	then	# use current_folder as name
-		echo "Usage: zip_file \$file_name"
-		return
-	else
-		file_name=$1;	
-	fi;
-	
-	echo $current_folder_name;
-	time_stamp=$(date +"%Y-%m-%d_%H%Mhr_%S"sec) ; 
-	zip "$file_name"_$time_stamp.zip $file_name; 
+# Example usage: zip_file ./sample_data/california_housing_test.csv
+function zip_file() {
+    if [ -z "$1" ]; then  # Check if the argument is empty
+        echo "Usage: zip_file \$file_name"
+        return
+    else
+        file_name="$1"  # Assign the first argument to file_name
+    fi
+
+    # Getting the current folder name
+    current_folder_name=$(basename "$(pwd)")
+    
+    # Creating a timestamp
+    time_stamp=$(date +"%Y-%m-%d_%H%Mhr_%Ssec")
+    
+    # Zipping the file with a timestamp
+    zip "${file_name}_$time_stamp.zip" "$file_name"
 }
 
 time_stamp=''
