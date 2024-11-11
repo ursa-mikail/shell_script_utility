@@ -120,10 +120,12 @@ function clear_git_logs() {
     # Display warning message
     echo "WARNING: This action will permanently delete all commit history from the current branch."
     echo "         It will create a new branch with no history and force push it to the remote repository."
-    echo "Explain what will happen before proceeding a full flush and refresh:"
-    echo "         This is a destructive action and cannot be undone."    
-    echo "Are you sure you want to proceed? (yes/no): " 
+    echo "         This is a destructive action and cannot be undone."
+    echo "Explain what will happen before proceeding a full flush and refresh."
+    echo "Are you sure you want to proceed? (yes/no):" 
     read -r confirmation
+
+    open_new_window;
 
     # Check user confirmation
     if [ "$confirmation" != "yes" ]; then
@@ -132,43 +134,44 @@ function clear_git_logs() {
     fi
 
     # Step 1: Create a new orphan branch
-    git checkout --orphan new-branch
+    git checkout --orphan latest_branch
     if [ $? -ne 0 ]; then
         echo "Failed to create orphan branch. Aborting."
         exit 1
     fi
 
-    # Step 2: Remove all files from the staging area and working directory
-    git rm -rf .
-    if [ $? -ne 0 ]; then
-        echo "Failed to remove files. Aborting."
-        exit 1
-    fi
-
-    # Step 3: Add your files back and commit
-    git add .
-    git commit -m "Initial commit"
+    # Step 2: Add a file and commit
+    echo "Initial content" > README.md  # Create a file to commit if you don't have any files
+    git add -A
+    git commit -m "Initial commit on latest_branch"
     if [ $? -ne 0 ]; then
         echo "Failed to commit changes. Aborting."
         exit 1
     fi
 
-    # Step 4: Delete the old branch and rename the new branch
-    git branch -D main  # Replace 'main' with the name of your old branch
-    git branch -m main  # Rename the new branch to 'main'
+    # Step 3: Delete the main branch if it exists locally
+    git branch -D main  # If 'main' exists, this will delete it; if not, skip this step
+    if [ $? -ne 0 ]; then
+        echo "Failed to delete old branch. Aborting."
+        exit 1
+    fi
+
+    # Step 4: Rename latest_branch to main
+    git branch -m main
     if [ $? -ne 0 ]; then
         echo "Failed to rename branch. Aborting."
         exit 1
     fi
 
-    # Step 5: Force push to the remote repository
-    git push -f origin main  # Replace 'main' with the name of your branch
+    # Step 5: Force push the new main branch to the remote repository
+    git push -f origin main
     if [ $? -ne 0 ]; then
         echo "Failed to push changes to remote repository. Aborting."
         exit 1
     fi
 
     echo "Git logs cleared and new history pushed to remote repository successfully."
+    echo "Close this window and use the other one from which this is created from."
 }
 
 
