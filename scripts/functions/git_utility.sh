@@ -208,6 +208,21 @@ function git_search_by_ID (){
 	git show $commit_id
 }
 
+# git_log_search "keyword1" "keyword2" ....
+function git_log_search() {
+    local keywords=("$@")
+    local grep_args=""
+
+    # Prepare search arguments for each keyword and search in commit messages
+    for keyword in "${keywords[@]}"; do
+        grep_args+="--grep=${keyword}* "
+    done
+
+    # Perform the git log search with the 'grep' filtering
+    GIT_PAGER=cat git log --color --pretty=format:'%C(yellow)%h%Creset %s %C(bold blue)<%an>%Creset %C(green)(%ar)%Creset' --regexp-ignore-case | grep -i "${keywords[0]}" | grep -i "${keywords[1]}"
+}
+
+
 function git_show_line_index_by_ID (){
 	# view commit details. git show command takes SHA-1 commit ID as a parameter. 
 	#$ git show cbe1249b140dad24b2c35b15cc7e26a6f02d2277
@@ -633,6 +648,65 @@ function force_all_updates(){
 	git fetch origin
 	git reset --hard origin/main
 }
+
+# Example usage: # manage_merge master feature-branch # master <--- feature-branch
+function manage_merge() {
+    local target_branch=$1
+    local feature_branch=$2
+
+    # Check if both branches are provided
+    if [[ -z "$target_branch" || -z "$feature_branch" ]]; then
+        echo "Usage: manage_merge <target_branch> <feature_branch>"
+        return 1
+    fi
+
+    # Display current branch and all branches
+    current_branch=$(git symbolic-ref --short -q HEAD)
+    echo "You are currently on branch: $current_branch"
+    echo "All branches:"
+    git branch
+
+    # Check if the user is on the target branch
+    if [[ "$current_branch" != "$target_branch" ]]; then
+        echo "Switching to target branch: $target_branch"
+        git checkout $target_branch
+        if [[ $? -ne 0 ]]; then
+            echo "Error: Could not check out branch $target_branch"
+            return 1
+        fi
+        echo "Now on branch: $target_branch"
+    else
+        echo "Already on target branch: $target_branch"
+    fi
+
+    # Merge the feature branch into the target branch
+    git merge $feature_branch
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Could not merge branch $feature_branch into $target_branch"
+        return 1
+    fi
+
+    # Delete the feature branch locally
+    git branch -d $feature_branch
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Could not delete local branch $feature_branch"
+        return 1
+    fi
+
+    # Delete the feature branch remotely if it exists
+    git push origin --delete $feature_branch
+    if [[ $? -ne 0 ]]; then
+        echo "Warning: Could not delete remote branch $feature_branch"
+        # Not returning an error here, since local deletion is often sufficient
+    fi
+
+    # Announce the branch deletion
+    echo "Branch '$feature_branch' has been successfully merged into '$target_branch' and deleted."
+
+    echo "All branches:"
+    git branch    
+}
+
 
 function manage_branch() {
     echo "Current branches:"
