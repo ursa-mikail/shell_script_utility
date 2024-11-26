@@ -125,7 +125,9 @@ function clear_git_logs() {
     echo "Are you sure you want to proceed? (yes/no):" 
     read -r confirmation
 
-    open_new_window;
+    #open_new_window;
+
+    mv readme.md ../readme.md # backup the readme file
 
     # Check user confirmation
     if [ "$confirmation" != "yes" ]; then
@@ -169,6 +171,8 @@ function clear_git_logs() {
         echo "Failed to push changes to remote repository. Aborting."
         exit 1
     fi
+
+    mv ../readme.md readme.md # recover the backuped readme file
 
     echo "Git logs cleared and new history pushed to remote repository successfully."
     echo "Close this window and use the other one from which this is created from."
@@ -629,6 +633,44 @@ function force_all_updates(){
 	git fetch origin
 	git reset --hard origin/main
 }
+
+function manage_branch() {
+    echo "Current branches:"
+    git branch
+
+    echo "Choose an action:"
+    echo "1. Create a new branch"
+    echo "2. Switch to an existing branch"
+    echo "3. Delete a branch"
+    printf "Enter the number of your choice: "
+    read action
+
+    case $action in
+        1)
+            printf "Enter the name of the new branch: "
+            read new_branch
+            git checkout -b "$new_branch"
+            ;;
+        2)
+            printf "Enter the name of the branch to switch to: "
+            read switch_branch
+            git checkout "$switch_branch"
+            ;;
+        3)
+            printf "Enter the name of the branch to delete: "
+            read delete_branch
+            git branch -d "$delete_branch"
+            ;;
+        *)
+            echo "Invalid choice. Please enter 1, 2, or 3."
+            ;;
+    esac
+
+    echo "Current branches:"
+    git branch    
+}
+
+
 
 echo ""
 : <<'NOTE_BLOCK'
