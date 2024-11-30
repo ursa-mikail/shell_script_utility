@@ -16,17 +16,15 @@ function cipher_file {
 }
 
 function decipher_file { 
-	number_of_inputs=2
-	if [ $# -lt $number_of_inputs ];
-	then
-		clr;
-        		echo "Usage : $0 decipher_file $1: (input_file) $2: (output_file) "
-		return;
-	fi
- 
-	# openssl enc -aes-256-cbc -d -in "$1" -out "$2"; 
-	openssl enc -aes-256-cbc -pbkdf2 -iter $number_of_cipher_nonce_rounds -d -in "$1" -out "$2";
+    number_of_inputs=2
+    if [ $# -lt $number_of_inputs ]; then
+        clr
+        echo "Usage : $0 decipher_file $1: (input_file) $2: (output_file)"
+        return
+    fi
+    openssl enc -aes-256-cbc -pbkdf2 -iter $number_of_cipher_nonce_rounds -d -in "$1" -out "$2"
 }
+
 
 function cipher_message_in_hex_strings { 
 	number_of_inputs=2
@@ -74,8 +72,10 @@ function cipher_message {
 	fi
 	
 	# echo "$1" | openssl enc -aes-256-cbc -salt -a -k "$2"; 
-	echo "$1" | openssl enc -aes-256-cbc -pbkdf2 -iter $number_of_cipher_nonce_rounds -a -k "$2"; 
+	echo "$1" | openssl enc -aes-256-cbc -pbkdf2 -iter $number_of_cipher_nonce_rounds -a -k "$2" | tr -d '\n'; 
 }
+
+
 function decipher_message { 
 	number_of_inputs=2
 	if [ $# -lt $number_of_inputs ];
