@@ -223,4 +223,78 @@ function word_count_in_str(){
 	echo "number_of_words:" $number_of_words
 }
 
+# str_to_snake_case 'QR Code JSON Encoder/Decoder For Contact Share'
+# Convert to snake_case (lowercase and underscores)
+function str_to_snake_case() {
+    input_string="$1"
+    formatted_string=$(echo "$input_string" | tr -cs '[:alnum:]' '_' | tr '[:upper:]' '[:lower:]' | tr -s '_')
+    # Remove trailing underscore if present
+    formatted_string=$(echo "$formatted_string" | sed 's/_$//')
+    echo "$formatted_string"
+}
+
+# str_to_kebab_case 'QR Code JSON Encoder/Decoder For Contact Share'
+# Convert to kebab-case (lowercase and hyphens)
+function str_to_kebab_case() {
+    input_string="$1"
+    formatted_string=$(echo "$input_string" | tr -cs '[:alnum:]' '-' | tr '[:upper:]' '[:lower:]' | tr -s '-')
+    # Remove trailing hyphen if present
+    formatted_string=$(echo "$formatted_string" | sed 's/-$//')
+    echo "$formatted_string"
+}
+
+# str_to_camel_case 'QR Code JSON Encoder/Decoder For Contact Share'
+# Convert to camelCase (first letter lowercase, no separator)
+# Convert to camelCase (first letter lowercase, subsequent words capitalized)
+function str_to_camel_case() {
+    local input_string="$1"
+    
+    # Convert to lowercase and replace non-alphanumeric characters with spaces
+    local cleaned=$(echo "$input_string" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/ /g')
+    
+    # Capitalize first letter after each space and remove spaces
+    local camel_case=""
+    local capitalize_next=false
+
+    for ((i=0; i<${#cleaned}; i++)); do
+        local char="${cleaned:$i:1}"
+        
+        if [[ "$char" == " " ]]; then
+            capitalize_next=true
+        else
+            if [ "$capitalize_next" = true ]; then
+                camel_case="${camel_case}$(echo "$char" | tr '[:lower:]' '[:upper:]')"
+                capitalize_next=false
+            else
+                camel_case="${camel_case}${char}"
+            fi
+        fi
+    done
+
+    # Ensure the first character is lowercase
+    camel_case="$(echo "${camel_case:0:1}" | tr '[:upper:]' '[:lower:]')${camel_case:1}"
+
+    echo "$camel_case"
+}
+
+# str_to_pascal_case 'QR Code JSON Encoder/Decoder For Contact Share'
+# Convert to PascalCase (capitalize the first letter)
+function str_to_pascal_case() {
+    input_string="$1"
+    camel_case_string=$(str_to_camel_case "$input_string")
+    # Capitalize the first letter manually
+    pascal_case_string="$(echo ${camel_case_string:0:1} | tr '[:lower:]' '[:upper:]')${camel_case_string:1}"
+    echo "$pascal_case_string"
+}
+
+# str_to_capital_snake_case 'QR Code JSON Encoder/Decoder For Contact Share'
+# Convert to CAPITAL_SNAKE_CASE (uppercase and underscores)
+function str_to_capital_snake_case() {
+    input_string="$1"
+    formatted_string=$(echo "$input_string" | tr -cs '[:alnum:]' '_' | tr '[:lower:]' '[:upper:]' | tr -s '_')
+    # Remove trailing underscore if present
+    formatted_string=$(echo "$formatted_string" | sed 's/_$//')
+    echo "$formatted_string"
+}
+
 
