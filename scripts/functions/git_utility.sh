@@ -127,7 +127,8 @@ function clear_git_logs() {
 
     #open_new_window;
 
-    mv readme.md ../readme.md # backup the readme file
+    mkdir ../backup/
+    mv readme.md ../backup/readme.md # backup the readme file
 
     # Check user confirmation
     if [ "$confirmation" != "yes" ]; then
@@ -172,7 +173,8 @@ function clear_git_logs() {
         exit 1
     fi
 
-    mv ../readme.md readme.md # recover the backuped readme file
+    mv ../backup/readme.md readme.md # recover the backuped readme file
+    rm -rf ../backup/
 
     echo "Git logs cleared and new history pushed to remote repository successfully."
     echo "Close this window and use the other one from which this is created from."
@@ -208,6 +210,13 @@ function git_search_by_ID (){
 	git show $commit_id
 }
 
+echo ""
+: <<'NOTE_BLOCK'
+Searches for commits using the provided keywords.
+Formats the log output to highlight commit hash, message, author, and relative date.
+NOTE_BLOCK
+echo ""	
+
 # git_log_search "keyword1" "keyword2" ....
 function git_log_search() {
     local keywords=("$@")
@@ -222,6 +231,113 @@ function git_log_search() {
     GIT_PAGER=cat git log --color --pretty=format:'%C(yellow)%h%Creset %s %C(bold blue)<%an>%Creset %C(green)(%ar)%Creset' --regexp-ignore-case | grep -i "${keywords[0]}" | grep -i "${keywords[1]}"
 }
 
+echo ""
+: <<'NOTE_BLOCK'
+Searches for commits either before or after the specified date.
+Formats the log output similarly to the git_log_search function.
+Date format: YYYY-MM-DD.
+NOTE_BLOCK
+echo ""	
+
+# Function to search for commits by date
+function git_log_search_by_date() {
+  local date=$1
+  local direction=$2
+
+  if [ "$direction" == "before" ]; then
+    git log --before="$date" --color --pretty=format:'%C(yellow)%h%Creset %s %C(bold blue)<%an>%Creset %C(green)(%ar)%Creset' --date=local
+  elif [ "$direction" == "after" ]; then
+    git log --after="$date" --color --pretty=format:'%C(yellow)%h%Creset %s %C(bold blue)<%an>%Creset %C(green)(%ar)%Creset' --date=local
+  else
+    echo "Invalid direction. Use 'before' or 'after'."
+    exit 1
+  fi
+}
+
+echo ""
+: <<'NOTE_BLOCK'
+Resets or reverts to the specified commit based on the action provided.
+reset performs a hard reset to the given commit.
+revert reverts the changes made by all commits from the specified commit to the current HEAD without committing them immediately.
+NOTE_BLOCK
+echo ""	
+
+# Function to reset or revert to a specified commit
+function git_reset_or_revert() {
+  local commit_id=$1
+  local action=$2
+
+  if [ "$action" == "reset" ]; then
+    echo "Resetting to commit: $commit_id"
+    git reset --hard "$commit_id"
+  elif [ "$action" == "revert" ]; then
+    echo "Reverting to commit: $commit_id"
+    git revert --no-commit "$commit_id"..HEAD
+    git commit -m "Revert to commit $commit_id"
+  else
+    echo "Invalid action. Use 'reset' or 'revert'."
+    exit 1
+  fi
+}
+
+# menu_git_reset_or_revert "$@"
+# Function to display the menu and handle user input
+function menu_git_reset_or_revert() {
+
+    echo "[1] $0 search <keyword1> <keyword2> ..."
+    echo "[2] $0 search-by-date <date> <before|after>"
+    echo "[3] $0 reset-or-revert <commit_id> <reset|revert>"
+
+    #read -p "Input Selection: " COMMAND # -r
+    echo "Input Selection: "
+    read COMMAND
+    echo ""
+
+#  if [ -z "$1" ]; then # no inputs
+#  if [ $# -lt 1 ]; then # < 1 inputs
+#  if [ $# -ne 2 ]; then # != 2 inputs
+#  fi
+
+  #COMMAND=$1
+  #shift
+
+  case "$COMMAND" in
+    1) 
+      echo "Usage: $0 search <keyword1> <keyword2> ..."; # search) # insteading of typing word `search`
+      echo "Enter keywords (separated by spaces): ";
+      read -r "$@";
+
+      git_log_search "$@"
+      ;;
+    
+    2) # search-by-date)
+      echo "Usage: $0 search-by-date <date> <before|after>"
+      read -r "DATE: " DATE
+      read -r "DIRECTION: " DIRECTION
+
+      #DATE=$1
+      #DIRECTION=$2
+      git_log_search_by_date "$DATE" "$DIRECTION"
+      ;;
+    
+    3) # reset-or-revert)
+      echo "Usage: $0 reset-or-revert <commit_id> <reset|revert>"
+      read -r "COMMIT_ID: " COMMIT_ID
+      read -r "ACTION: " ACTION
+
+      #COMMIT_ID=$1
+      #ACTION=$2
+      git_reset_or_revert "$COMMIT_ID" "$ACTION"
+      ;;
+    
+    *)
+      echo "Invalid command. Use 'search', 'search-by-date', or 'reset-or-revert'."
+      return 0;
+      ;;
+  esac
+
+  echo ""
+}
 
 function git_show_line_index_by_ID (){
 	# view commit details. git show command takes SHA-1 commit ID as a parameter. 
@@ -744,7 +860,18 @@ function manage_branch() {
     git branch    
 }
 
-
+# make_git_folder 'Image Blur Effect'
+function make_git_folder() {
+    # Convert the provided folder name to snake_case
+    folder_name=$(str_to_snake_case "$1")
+    
+    # Create the folder and navigate into it
+    create_and_goto_folder "$folder_name"
+    
+    # Create and open the .py file and readme.md file in Sublime Text
+    subl "${folder_name}.py"
+    subl "readme.md"
+}
 
 echo ""
 : <<'NOTE_BLOCK'
@@ -768,3 +895,5 @@ echo ""
 
 NOTE_BLOCK
 echo ""	
+
+
