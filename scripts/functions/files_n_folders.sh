@@ -447,4 +447,51 @@ function delete_files_by_given_file_type () {
 #find . -type f -name '*.o' -exec rm {} +
 #find . -type f -name '*.sh' -exec file {} +
 
+# Check if the script is being run with the --help argument
+#if [[ "$1" == "--help" ]]; then
+#    merge_sort_deduplicate_files --help
+#    exit 0
+#fi
+
+# Example usage
+# Uncomment the lines below to run the function with sample files
+# file1="config1.txt"
+# file2="config2.txt"
+# output_file="merged_sorted_config.txt"
+# merge_sort_deduplicate_files "$file1" "$file2" "$output_file"
+# Function to merge, sort, and deduplicate two files
+function merge_sort_deduplicate_files() {
+    if [[ "$1" == "--help" ]]; then
+        echo "Usage: merge_sort_deduplicate_files file1 file2 output_file"
+        echo "Merge two configuration files, sort them, and remove duplicate lines."
+        echo ""
+        echo "Arguments:"
+        echo "  file1        Path to the first configuration file"
+        echo "  file2        Path to the second configuration file"
+        echo "  output_file  Path to the output file"
+        return 0
+    fi
+
+    if [[ $# -ne 3 ]]; then
+        echo "Error: Invalid number of arguments"
+        echo "Usage: merge_sort_deduplicate_files file1 file2 output_file"
+        return 1
+    fi
+
+    local file1="$1"
+    local file2="$2"
+    local output_file="$3"
+
+    if [[ ! -f "$file1" || ! -f "$file2" ]]; then
+        echo "Error: One or both input files do not exist."
+        return 1
+    fi
+
+    # Merge, sort, and remove duplicate lines
+    cat "$file1" "$file2" | sort | uniq > "$output_file"
+
+    echo "Merged, sorted, and deduplicated configuration saved to $output_file"
+}
+
+
 
