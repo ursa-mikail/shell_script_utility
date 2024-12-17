@@ -154,23 +154,24 @@ function list_zsh_functions() {
     echo "======================"
 
     # List all functions with typeset
-    typeset -f | awk 'NF {print $3}'  # Print only function names
+    typeset -f | awk '/^[a-zA-Z_][a-zA-Z_0-9]* *\(\)/ {print $1}'  # Print only function names
 }
 
 function list_zsh_functions_enumerated() {
-	echo ""
-	echo "======================"
-	echo "List of bash functions"
+    echo ""
     echo "======================"
-	list_zsh_functions | grep -v gawk | cat -n
+    echo "List of Zsh functions"
+    echo "======================"
+    list_zsh_functions | cat -n
 }
 
-function search_function () {
-	keyword="$1"
-	list_zsh_functions | seek_further $keyword
+function search_function() {
+    keyword="$1"
+    list_zsh_functions | grep "$keyword"
 }
 
-# Usage: where_is_function find_bash
+
+# Usage: where_is_function find_zsh
 function where_is_function(){
 	keyword="$1"
 	path_start=$HOME'/scripts/functions/'
