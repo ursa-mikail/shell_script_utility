@@ -1,3 +1,8 @@
+
+function memory_available(){
+	vm_stat | awk 'NR==2{print "Free Memory: " $3 * 4096 / 1024 / 1024 " MB"}'
+}
+
 function introspect_function(){
 	if [ ! -z "$1" ]; then
 		if [ "$1" == '--introspect' ]; then
