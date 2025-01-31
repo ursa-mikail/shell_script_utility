@@ -1,6 +1,8 @@
 
 function memory_available(){
 	vm_stat | awk 'NR==2{print "Free Memory: " $3 * 4096 / 1024 / 1024 " MB"}'
+	top -l 1 | grep PhysMem | awk '{used=$2; total=$2+$6; print "Memory Used: " used "/" total " MB (" used/total*100 "%)"}'
+
 }
 
 function introspect_function(){
