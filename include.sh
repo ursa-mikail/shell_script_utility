@@ -6,6 +6,7 @@ number_of_levels_up="./"
 echo "< Sourcing include.sh >"
 source $HOME"/scripts/parameters.sh"
 #
+source $HOME"/scripts/functions/developer_aid.sh"
 source $HOME"/scripts/functions/cipher_utility.sh"
 source $HOME"/scripts/functions/hash_utility.sh"
 source $HOME"/scripts/functions/mac_utility.sh"  
@@ -47,3 +48,9 @@ source $HOME"/scripts/utilities/text_formatter.sh"
 source $HOME"/scripts/utilities/cipher_message_file_and_hash.sh"
 source $HOME"/scripts/utilities/function_run_timer.sh"
 source $HOME"/scripts/utilities/dev_shell.sh"
+source $HOME"/scripts/utilities/batch_processor.sh"
+
+source $HOME"/scripts/utilities/file_filter.sh"
+#source $HOME"/scripts/utilities/main.sh"
+#source $HOME"/scripts/utilities/main_functions.sh"
+

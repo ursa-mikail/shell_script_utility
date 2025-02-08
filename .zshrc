@@ -1,4 +1,4 @@
-# version: 2024-10-07_2200hr_11sec
+# version: 2025-02-07_1748hr_34sec
 
 export PATH=/opt/homebrew/bin:$PATH
 export PATH="/usr/local/opt/openssl/bin:$PATH"
@@ -12,15 +12,20 @@ echo "run 'rlc' to reload .zshrc file"
 echo ""    
 echo "< zsh mode >"   
 #ln -s /Applications/Sublime\ Text.app/Contents/SharedSupport/bin/subl /usr/local/bin/subl
+alias jupyter_start="jupyter notebook; open -a '/Applications/Google Chrome.app' http://local:8888/tree;"
+
 
 alias emend_config="subl ~/.zshrc"
 alias rlc="source ~/.zshrc; echo '.zshrc file reloaded\n'"
 alias main="date; now; echo 'Activating [ MAIN ]'; $HOME/scripts/main.sh;"
-alias py="echo "============================="; date; now; echo "============================="; python"
-alias py3="echo "============================="; date; now; echo "============================="; python3"
+#alias py="echo "============================="; date; now; echo "============================="; python"
+#alias py3="echo "============================="; date; now; echo "============================="; python3"
 # alias rr="echo "============================="; date; now; echo "=============================";     Rscript"
 # alias reload_bashrc=". ~/.bash_profile" # mac
 # alias reload_sys_config=". ~/.zshrc" # mac
+alias go_create="echo "============================="; date; now; echo "============================="; go mod init"
+alias go_test="echo "============================="; date; now; echo "============================="; go test -v"
+
 
 alias empty="cat /dev/null>"
 
