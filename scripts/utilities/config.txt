@@ -1,0 +1,12 @@
+# Define domains and their subdivisions
+domains="dev,test,prod"
+domain_subs="backend,frontend"
+
+# Define the range of indices for test files
+index_start=0
+index_end=100
+
+file_name="x_"
+
+# Define the output folder inside each domain and subdomain
+folder_out="out"
