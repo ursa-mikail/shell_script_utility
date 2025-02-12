@@ -15,3 +15,7 @@ for dir in $(eval echo $file_out); do
     done
 done
 
+#braces="{01..100}"
+#files="$file_name"$braces".txt" 
+#eval touch $files
+
