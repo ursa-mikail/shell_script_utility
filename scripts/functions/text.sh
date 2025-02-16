@@ -297,4 +297,10 @@ function str_to_capital_snake_case() {
     echo "$formatted_string"
 }
 
+# Convert to Title Case
+function str_to_title_case() {
+    input_string="$1"
+    formatted_string=$(echo "$input_string" | sed -E 's/[^[:alnum:]]+/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+    echo "$formatted_string"
+}
 
