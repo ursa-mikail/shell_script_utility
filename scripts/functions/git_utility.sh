@@ -873,6 +873,56 @@ function make_git_folder() {
     subl "readme.md"
 }
 
+function which_key_is_for_git() {
+    ssh -vT git@github.com 2>&1 | grep "Offering public key" | awk '{print $NF}'
+    ssh -vT git@github.com 2>&1 | grep "Offering public key" | sed -E 's/.*Offering public key: ([^ ]+) .*/\1/'
+}
+
+function test_private_key() {
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: test_private_key <private_key_filename>"
+        return 1
+    fi
+
+    key_file="$1"
+
+    echo 'list all keys'
+    ls $HOME/.ssh
+    echo '-----------------'
+
+    # If the provided key name doesn't include a full path, assume ~/.ssh/
+    if [[ "$key_file" != /* ]]; then
+        key_file="$HOME/.ssh/$key_file"
+    fi
+
+    pub_key="${key_file}.pub"
+
+    if [ ! -f "$key_file" ]; then
+        echo "Error: Private key '$key_file' does not exist."
+        return 1
+    fi
+
+    if [ ! -f "$pub_key" ]; then
+        echo "Error: Public key '$pub_key' does not exist."
+        return 1
+    fi
+
+    fingerprint_priv=$(ssh-keygen -lf "$key_file" | awk '{print $2}')
+    fingerprint_pub=$(ssh-keygen -lf "$pub_key" | awk '{print $2}')
+
+    echo 'fingerprint_priv: ' $fingerprint_priv
+	echo 'fingerprint_pub: ' $fingerprint_pub
+
+    if [ "$fingerprint_priv" = "$fingerprint_pub" ]; then
+        echo "Match: $key_file corresponds to $pub_key"
+    else
+        echo "Mismatch: $key_file does NOT match $pub_key"
+    fi
+}
+
+
+
+
 echo ""
 : <<'NOTE_BLOCK'
     # Prompt the user for the remote source
