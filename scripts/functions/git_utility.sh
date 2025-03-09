@@ -13,6 +13,17 @@ function git_commit_and_push_to_main (){
 	# git push origin <branch_name>
 }
 
+# % get_commits_in_range "2024-11-01" "2024-11-25"
+function get_commits_in_range() {
+    local start_date="$1"
+    local end_date="$2"
+
+    git log --since="$start_date" --until="$end_date" --pretty=format:"%h" | while read -r hash; do 
+        git show "$hash" --pretty=format:"%h | %an | %ad | %s" --date=short --no-patch
+    done
+}
+
+
 function fetch_and_check_diff(){
 	# Fetch the latest changes
 	git fetch origin
