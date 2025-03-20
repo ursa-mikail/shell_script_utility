@@ -932,7 +932,14 @@ function test_private_key() {
 }
 
 
+function forced_refresh_and_align_with_remote() {
+	# Ensure you're on the correct branch
+	git checkout main  # Replace 'main' with your branch name
 
+	# Reset your branch to match the remote, discarding local changes
+	git fetch origin
+	git reset --hard origin/main
+}
 
 echo ""
 : <<'NOTE_BLOCK'
