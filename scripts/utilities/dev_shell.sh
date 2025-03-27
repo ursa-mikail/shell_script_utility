@@ -40,13 +40,33 @@ function start_flask_app() {
 
 function stop_flask_app() {
     # Find the PID of the py process running app.py
-    pid=$(pgrep -f "/opt/anaconda3/bin/python /opt/anaconda3/bin/flask run")
-    
-    if [ -z "$pid" ]; then
-        echo "No flask run process found"
+    # pids=$(pgrep -f "/opt/anaconda3/bin/python /opt/anaconda3/bin/flask run")
+    #pids=$(pgrep -f "python app.py")
+    pids=$(pgrep -f "python app.py" | tr '\n' ' ')  # Convert newlines to spaces
+
+    if [ -z "$pids" ]; then
+        echo "No running Flask app found."
     else
-        # Kill the process
-        kill "$pid"
-        echo "Stopped flask run process with PID: $pid"
+        # Kill all matching PIDs
+        echo "Stopping Flask app with PIDs: $pids"
+        kill $pids
+        echo "Flask app stopped."
     fi
 }
+
+function stop_python_venv() {
+    # Find the PIDs and ensure they are space-separated
+    pids=$(pgrep -f "venv/bin/python")
+
+    if [ -z "$pids" ]; then
+        echo "No running [venv/bin/python] found."
+    else
+        # Kill all matching PIDs safely
+        echo "Stopping [venv/bin/python] with PIDs: $pids"
+        echo "$pids" | xargs kill -9
+        echo "[venv/bin/python] stopped."
+    fi
+
+    ps aux | grep "venv/bin/python"
+}
+
