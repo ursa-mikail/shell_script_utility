@@ -208,6 +208,9 @@ function seek {
     fi
 }
 
+#grep "pattern" file.txt || echo "Pattern not found"
+#% cat *.txt > all.txt; cat all.txt
+
 
 # seek 'bash_func' 'scripts' | seek_further 'tion'
 # $ seek $key_word_00 | seek_further $key_word_01 | seek_further $key_word_02 ...
@@ -350,8 +353,8 @@ function clr(){
 }
 
 function set_terminal_title() {
-      export PS1="\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n$ "
-      echo -ne "\e]0;$1\a"
+    PS1='\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n$ '
+    printf "\e]0;%s\a" "$1"
 }
 
 echo ""
@@ -484,6 +487,15 @@ function refresh_shell(){
 	echo $time_stamp; 
 	eval ". "$HOME"/.zshrc"
 }
+
+# traverse_and_display_contents_of_file_type '.rs' './'
+function traverse_and_display_contents_of_file_type() {
+  local file_type=$1
+  local directory=$2
+  
+  find "$directory" -type f -name "*$file_type" -print -exec cat {} \; -exec echo "====================" \;
+}
+
 
 function exit_program_for_menu() {
 	printf "\n quit.\n"
