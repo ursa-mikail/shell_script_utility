@@ -29,6 +29,13 @@ function find_lines_containing_str_starting_from_path() {
     echo "number_of_lines_found: $number_of_lines_found"
 }
 
+# find_filename_given_keyword 'merkle'
+function find_filename_given_keyword() {
+    local keyword=$1
+    local path=${2:-"."}  # If no path is given, default to current directory
+
+    find "$path" -type f -name "*$keyword*" -exec ls -l {} +
+}
 
 function find_file_from_leaf() {
 	number_of_inputs=1
