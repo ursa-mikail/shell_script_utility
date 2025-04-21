@@ -941,6 +941,36 @@ function forced_refresh_and_align_with_remote() {
 	git reset --hard origin/main
 }
 
+# Function to create a new git branch and show all branches
+function make_git_branch() {
+  if [ -z "$1" ]; then
+    echo "Usage: make_git_branch <branch-name>"
+    return 1
+  fi
+  git checkout -b "$1"
+  echo "📌 Created and switched to branch: $1"
+  echo "📋 Current branches:"
+  git branch
+}
+ 
+# Function to stage, commit, and remind to push
+function commit_changes_to_branch() {
+  read -p "📝 Enter commit message: " commit_msg
+  git add .
+  git commit -m "$commit_msg"
+  echo "✅ Committed changes with message: \"$commit_msg\""
+  echo "📋 Current branches:"
+  git branch
+
+  echo ""
+  echo "🚀 Almost done! To open a Pull Request:"
+  echo "----------------------------------------"
+  echo '1. Run: git push origin <your-branch-name>'
+  echo "2. Go to your repo URL"
+  echo '3. Click "Compare & pull request" or "New Merge Request".'
+  echo "----------------------------------------"
+} 
+
 echo ""
 : <<'NOTE_BLOCK'
     # Prompt the user for the remote source
