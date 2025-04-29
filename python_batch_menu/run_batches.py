@@ -40,6 +40,7 @@ def menu(batch_files):
             elif 1 <= choice <= len(batch_files):
                 script_path = os.path.join(BATCH_FOLDER, batch_files[choice-1])
                 make_executable(script_path)
+                # subprocess.run(["clear"])
                 print(f"Running '{batch_files[choice-1]}'...\n")
                 subprocess.run([script_path], check=True)
             else:
