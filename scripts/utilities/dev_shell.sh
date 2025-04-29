@@ -52,9 +52,33 @@ function stop_flask_app() {
         kill $pids
         echo "Flask app stopped."
     fi
+
+    # if there is only 1 instance running
+    pids=$(pgrep -f "python app.py")
+
+    if [ -z "$pids" ]; then
+        echo "No running Flask app found."
+    else
+        # Kill all matching PIDs
+        echo "Stopping Flask app with PIDs: $pids"
+        kill $pids
+        echo "Flask app stopped."
+    fi
 }
 
+function start_python_venv() {
+    python3 -m venv venv
+    source venv/bin/activate
+
+    echo "start_python_venv [started]"
+    # python3 -m pip install <package.name>
+    # python3 -m pip install --upgrade pip
+}  
+
+
 function stop_python_venv() {
+    deactivate 
+    
     # Find the PIDs and ensure they are space-separated
     pids=$(pgrep -f "venv/bin/python")
 
