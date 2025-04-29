@@ -4,4 +4,4 @@ Python script that will:
 3. When selected, execute the batch file
 
 `Note`: Run them with chmod +x beforehand to ensure they're executable
-
+`chmod +x batch_files/*.sh`
