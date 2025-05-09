@@ -94,3 +94,98 @@ function stop_python_venv() {
     ps aux | grep "venv/bin/python"
 }
 
+function python_install_package(){
+  python3 -m pip install "$1"
+}
+
+echo details_usage
+: <<'END'
+install sshpass (only works on systems that allow password-based automation):
+
+macOS (with Homebrew):
+brew install hudochenkov/sshpass/sshpass
+
+Ubuntu/Debian:
+sudo apt install sshpass
+
+Usage:
+ssh_send_file n.txt               # Sends n.txt to /home/m/ on remote
+ssh_get_file /home/m/n.txt        # Downloads n.txt from remote to current dir
+
+You can also specify paths:
+ssh_send_file notes.pdf /home/m/docs/
+ssh_get_file /home/m/docs/notes.pdf ~/Downloads/
+
+END
+echo details_usage
+
+# Set once: password and host (refer: $HOME"/scripts/config_secrets.sh")
+
+# Send a file: local → remote
+function ssh_send_file() {
+  local file="$1"
+  local remote_path="${2:-/home/m/}"
+  sshpass -p "$SSH_PASS" scp "$file" "$SSH_HOST:$remote_path"
+}
+
+# Get a file: remote → local
+function ssh_get_file() {
+  local remote_file="$1"
+  local local_path="${2:-./}"
+  sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_file" "$local_path"
+}
+
+:'
+ssh_zip_folder_and_send myfolder             # Sends myfolder.zip to /home/m/
+ssh_get_zip_and_unzip /home/m/myfolder.zip   # Downloads and unzips to current dir
+
+ssh_get_folder_and_zip /home/m/myfolder     # Fetches and unzips to current dir
+ssh_get_folder_and_zip /home/m/myfolder ~/Downloads/
+'
+# Zip local folder and send it to remote
+function ssh_zip_folder_and_send() {
+  local folder="$1"
+  local zipname="${folder}.zip"
+  local remote_path="${2:-/home/m/}"
+
+  if [ ! -d "$folder" ]; then
+    echo "Folder '$folder' does not exist."
+    return 1
+  fi
+
+  zip -r "$zipname" "$folder"
+  sshpass -p "$SSH_PASS" scp "$zipname" "$SSH_HOST:$remote_path"
+  rm "$zipname"
+}
+
+# Get a remote zip file and unzip it locally
+function ssh_get_zip_and_unzip() {
+  local remote_zip_path="$1"  # e.g., /home/m/project.zip
+  local local_dir="${2:-./}"
+  local zipfile=$(basename "$remote_zip_path")
+
+  sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_zip_path" "$local_dir"
+  unzip -o "$local_dir/$zipfile" -d "$local_dir"
+  rm "$local_dir/$zipfile"
+}
+
+# Get a folder from remote: zip it there, copy it back here
+function ssh_get_folder_and_zip() {
+  local remote_folder="$1"             # e.g. /home/m/myfolder
+  local local_dest="${2:-./}"          # local destination (optional)
+  local zipname="$(basename "$remote_folder").zip"
+  local remote_zip="/tmp/$zipname"
+
+  # Zip folder remotely
+  sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "zip -r '$remote_zip' '$remote_folder'"
+
+  # Copy zip file back
+  sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_zip" "$local_dest"
+
+  # Clean up remote zip
+  sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "rm '$remote_zip'"
+
+  # Optionally unzip here
+  unzip -o "$local_dest/$zipname" -d "$local_dest"
+  rm "$local_dest/$zipname"
+}
