@@ -223,3 +223,11 @@ ssh -i "$SSH_KEY" "$SSH_HOST"
 
 END
 echo ""
+
+function ssh_login_with_pass(){
+    ssh -i "$SSH_KEY" "$SSH_HOST"
+}
+
+function ssh_login_with_key(){
+    sshpass -p "$SSH_PASS" ssh "$SSH_HOST"
+}
