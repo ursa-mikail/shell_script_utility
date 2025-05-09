@@ -120,6 +120,10 @@ END
 echo details_usage
 
 # Set once: password and host (refer: $HOME"/scripts/config_secrets.sh")
+:'
+export SSH_HOST="<user_id@ip>"
+export SSH_PASS="<SSH_PASS>"
+'
 
 # Send a file: local → remote
 function ssh_send_file() {
