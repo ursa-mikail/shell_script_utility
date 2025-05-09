@@ -98,7 +98,7 @@ function python_install_package(){
   python3 -m pip install "$1"
 }
 
-echo details_usage
+echo ""
 : <<'END'
 install sshpass (only works on systems that allow password-based automation):
 
@@ -124,7 +124,7 @@ export SSH_PASS="<SSH_PASS>"
 export SSH_KEY="$HOME/ssh_keys/jumpbox_key"
 '
 END
-echo details_usage
+echo ""
 
 # Send a file: local → remote
 function ssh_send_file() {
@@ -140,7 +140,7 @@ function ssh_get_file() {
   sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_file" "$local_path"
 }
 
-echo details_usage
+echo ""
 : <<'END'
 ssh_zip_folder_and_send myfolder             # Sends myfolder.zip to /home/m/
 ssh_get_zip_and_unzip /home/m/myfolder.zip   # Downloads and unzips to current dir
@@ -149,7 +149,7 @@ ssh_get_folder_and_zip /home/m/myfolder     # Fetches and unzips to current dir
 ssh_get_folder_and_zip /home/m/myfolder ~/Downloads/
 '
 END
-echo details_usage
+echo ""
 
 # Zip local folder and send it to remote
 function ssh_zip_folder_and_send() {
@@ -200,7 +200,7 @@ function ssh_get_folder_and_zip() {
 }
 
 
-echo details_usage
+echo ""
 : <<'END'
 
 🔐 Step-by-Step: SSH to Jumpbox Using Custom Key
@@ -222,4 +222,4 @@ sshpass -p "$SSH_PASS" ssh-copy-id -i ~/ssh_keys/jumpbox_key.pub "$SSH_HOST"
 ssh -i "$SSH_KEY" "$SSH_HOST"
 
 END
-echo details_usage
+echo ""
