@@ -116,14 +116,15 @@ You can also specify paths:
 ssh_send_file notes.pdf /home/m/docs/
 ssh_get_file /home/m/docs/notes.pdf ~/Downloads/
 
-END
-echo details_usage
 
 # Set once: password and host (refer: $HOME"/scripts/config_secrets.sh")
 :'
 export SSH_HOST="<user_id@ip>"
 export SSH_PASS="<SSH_PASS>"
+export SSH_KEY="$HOME/ssh_keys/jumpbox_key"
 '
+END
+echo details_usage
 
 # Send a file: local → remote
 function ssh_send_file() {
@@ -139,13 +140,17 @@ function ssh_get_file() {
   sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_file" "$local_path"
 }
 
-:'
+echo details_usage
+: <<'END'
 ssh_zip_folder_and_send myfolder             # Sends myfolder.zip to /home/m/
 ssh_get_zip_and_unzip /home/m/myfolder.zip   # Downloads and unzips to current dir
 
 ssh_get_folder_and_zip /home/m/myfolder     # Fetches and unzips to current dir
 ssh_get_folder_and_zip /home/m/myfolder ~/Downloads/
 '
+END
+echo details_usage
+
 # Zip local folder and send it to remote
 function ssh_zip_folder_and_send() {
   local folder="$1"
@@ -193,3 +198,28 @@ function ssh_get_folder_and_zip() {
   unzip -o "$local_dest/$zipname" -d "$local_dest"
   rm "$local_dest/$zipname"
 }
+
+
+echo details_usage
+: <<'END'
+
+🔐 Step-by-Step: SSH to Jumpbox Using Custom Key
+✅ Step 1: Generate a new SSH key pair (with custom name)
+
+mkdir -p ~/ssh_keys
+ssh-keygen -t rsa -b 4096 -f ~/ssh_keys/jumpbox_key -N ""
+
+This creates:
+~/ssh_keys/jumpbox_key → private key
+~/ssh_keys/jumpbox_key.pub → public key
+
+✅ Step 2: Copy the public key to the jumpbox
+ssh-copy-id -i ~/ssh_keys/jumpbox_key.pub "$SSH_HOST" 
+or 
+sshpass -p "$SSH_PASS" ssh-copy-id -i ~/ssh_keys/jumpbox_key.pub "$SSH_HOST"
+
+✅ Step 3: Connext using the key
+ssh -i "$SSH_KEY" "$SSH_HOST"
+
+END
+echo details_usage
