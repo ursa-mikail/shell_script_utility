@@ -19,6 +19,13 @@ function get_timestamp {
 	echo $time_stamp; 
 }
 
+function get_timestamp_precise {
+    # Generate a timestamp with milliseconds, microseconds, and nanoseconds
+    # timestamp=$(date +"%Y-%m-%d_%H%Mhr_%Ssec_%3Nms_%6Nus_%9Nns")
+    timestamp=$(gdate +"%Y-%m-%d_%H%Mhr_%Ssec_%3Nms_%6Nus_%9Nns")
+    echo $timestamp
+}
+
 # e.g. $ get_time_in_epoch 'Tue, Apr 10, 2020 2:10:31 AM'
 function get_time_in_epoch () {
 	date_formatted=''

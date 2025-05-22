@@ -178,6 +178,25 @@ function where_is_function(){
 	find_lines_containing_str_starting_from_path $path_start $keyword 
 }
 
+function find_zsh_function() {
+    list_zsh_functions_enumerated
+
+    echo ""
+    echo "Enter function name or number to locate:"
+    read -r input
+
+    # If input is a number, get corresponding function name
+    if [[ "$input" =~ ^[0-9]+$ ]]; then
+        selected=$(list_zsh_functions | sed -n "${input}p")
+    else
+        selected="$input"
+    fi
+
+    echo ""
+    echo "Searching for: $selected"
+    where_is_function "$selected"
+}
+
 
 #^ (circumflex or caret) inside square brackets negates expression : eg, [^Ff] means anything except upper or lower case F and [^a-z] means everything except lower case a-z.
 
