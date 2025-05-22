@@ -22,7 +22,7 @@ function get_timestamp {
 function get_timestamp_precise {
     # Generate a timestamp with milliseconds, microseconds, and nanoseconds
     # timestamp=$(date +"%Y-%m-%d_%H%Mhr_%Ssec_%3Nms_%6Nus_%9Nns")
-    timestamp=$(gdate +"%Y-%m-%d_%H%Mhr_%Ssec_%3Nms_%6Nus_%9Nns")
+    timestamp=$(gdate +"%Y-%m-%d_%H%Mhr_%Ssec_%3Nms_%6Nus_%9Nns") # brew install coreutils
     echo $timestamp
 }
 
