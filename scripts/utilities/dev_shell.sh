@@ -116,6 +116,8 @@ You can also specify paths:
 ssh_send_file notes.pdf /home/m/docs/
 ssh_get_file /home/m/docs/notes.pdf ~/Downloads/
 
+% ssh_send_file Makefile ./generate_large_primes
+% ssh_send_file generate_large_primes.cu ./generate_large_primes
 
 # Set once: password and host (refer: $HOME"/scripts/config_secrets.sh")
 :'
@@ -225,9 +227,9 @@ END
 echo ""
 
 function ssh_login_with_pass(){
-    ssh -i "$SSH_KEY" "$SSH_HOST"
+    sshpass -p "$SSH_PASS" ssh "$SSH_HOST"
 }
 
 function ssh_login_with_key(){
-    sshpass -p "$SSH_PASS" ssh "$SSH_HOST"
+    ssh -i "$SSH_KEY" "$SSH_HOST"
 }
