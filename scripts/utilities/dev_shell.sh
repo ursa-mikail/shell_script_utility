@@ -145,6 +145,8 @@ function ssh_get_file() {
 echo ""
 : <<'END'
 ssh_zip_folder_and_send myfolder             # Sends myfolder.zip to /home/m/
+% ssh_zip_folder_and_send time trial_utilities/ 
+
 ssh_get_zip_and_unzip /home/m/myfolder.zip   # Downloads and unzips to current dir
 
 ssh_get_folder_and_zip /home/m/myfolder     # Fetches and unzips to current dir
