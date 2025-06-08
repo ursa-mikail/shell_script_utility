@@ -9,6 +9,25 @@ level_5_above='../../../../../'
 #$folder_name=$(pwd)/$level_2_above$target_folder
 #$ check_if_folder_exists
 
+
+# Function to make a folder with a timestamped snake_case name
+function make_folder_timestamped_snakecase() {
+    base_name="$1"
+    if [ -z "$base_name" ]; then
+        #echo "Usage: make_folder_timestamped_snakecase <base_folder_name>"
+        #return 1
+        base_name=''
+        echo 'base_name not used.'
+    fi
+
+    time_stamp=$(date +"%Y_%m_%d_%H%Mhr_%Ssec")
+    echo "$time_stamp"
+    folder_name="${base_name}${time_stamp}"
+
+    mkdir -p "$folder_name"
+    echo "Created folder: $folder_name"
+}
+
 # Sample usage: % find_lines_containing_str_starting_from_path 'scripts/' 'find_lines'
 function find_lines_containing_str_starting_from_path() {
     starting_path="$1"
