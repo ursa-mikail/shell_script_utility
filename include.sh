@@ -53,4 +53,13 @@ source $HOME"/scripts/utilities/batch_processor.sh"
 source $HOME"/scripts/utilities/file_filter.sh"
 #source $HOME"/scripts/utilities/main.sh"
 #source $HOME"/scripts/utilities/main_functions.sh"
+source $HOME"/scripts/utilities/yubi.sh"
 
+echo ""
+: <<'NOTE_BLOCK_AREA'
+
+* for hidden files: `shift`-`command`-`.` to expose in folders.
+This area is a block comment area. 
+
+NOTE_BLOCK_AREA
+echo ""	
