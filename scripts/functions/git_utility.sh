@@ -878,7 +878,21 @@ function make_git_folder() {
     
     # Create the folder and navigate into it
     create_and_goto_folder "$folder_name"
+
+    touch '.gitignore'
+    echo '.DS_Store' >> '.gitignore'
+    echo '.gitignore' >> '.gitignore'
     
+    # Create the file
+	touch "${folder_name}.py"
+
+	# Write title-cased comment into the first line
+	## no space
+	# echo "# $(echo "${folder_name}" | awk -F'_' '{for (i=1; i<=NF; i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS='')" > "${folder_name}.py"
+	## with space
+	# echo "# $(echo "${folder_name}" | awk -F'_' '{for (i=1; i<=NF; i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS=' ')" > "${folder_name}.py"
+	echo "# $(str_to_title_case "${folder_name}") " > > "${folder_name}.py"
+
     # Create and open the .py file and readme.md file in Sublime Text
     subl "${folder_name}.py"
     subl "readme.md"
@@ -931,6 +945,10 @@ function test_private_key() {
     fi
 }
 
+function git_refresh() {
+	git fetch --all;
+	git pull --all;
+}
 
 function forced_refresh_and_align_with_remote() {
 	# Ensure you're on the correct branch
