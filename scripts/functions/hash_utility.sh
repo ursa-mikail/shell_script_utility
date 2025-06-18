@@ -76,27 +76,34 @@ alias pack_and_sha_folder=pack_and_sha
 function pack_and_sha {
     hash_algo=${hash_algo:-sha256} # Default to sha256 if not set
 
-    if [ -z "$1" ]; then # Check if the argument is empty
-        # Use the current folder name if no argument is specified
-        current_folder_name=${PWD##*/}
-    else
-        current_folder_name="$1"
+    if [ -z "$1" ]; then
+        echo "Usage: pack_and_sha <folder_path>"
+        return 1
     fi
 
-    echo "$current_folder_name"
-    time_stamp=$(date +"%Y-%m-%d_%H%Mhr_%Ssec")
-    
-    # Create a zip file
-    #zip -r "${current_folder_name}_$time_stamp.zip" . 
-    output_zip_file="${current_folder_name}"_$time_stamp.zip
-	zip -r "$output_zip_file" .
+    folder_path="$1"
 
-    # Calculate the SHA256 hash
-    sha256_result=$(openssl dgst -$hash_algo "${current_folder_name}_$time_stamp.zip")
+    if [ ! -d "$folder_path" ]; then
+        echo "Error: '$folder_path' is not a valid directory."
+        return 1
+    fi
+
+    # Remove trailing slash if any
+    folder_path="${folder_path%/}"
+    folder_name=$(basename "$folder_path")
+
+    echo "$folder_name"
+    time_stamp=$(date +"%Y-%m-%d_%H%Mhr_%Ssec")
+
+    output_zip_file="${folder_name}_$time_stamp.zip"
+    zip -r "$output_zip_file" "$folder_path"
+
+    sha256_result=$(openssl dgst -$hash_algo "$output_zip_file")
     echo "$sha256_result"
 
     echo "$output_zip_file"
 }
+
 
 function pack_and_sha_self {
     # Change directory to "$HOME/scripts/functions"
