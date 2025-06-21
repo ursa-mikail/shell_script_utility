@@ -891,7 +891,7 @@ function make_git_folder() {
 	# echo "# $(echo "${folder_name}" | awk -F'_' '{for (i=1; i<=NF; i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS='')" > "${folder_name}.py"
 	## with space
 	# echo "# $(echo "${folder_name}" | awk -F'_' '{for (i=1; i<=NF; i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS=' ')" > "${folder_name}.py"
-	echo "# $(str_to_title_case "${folder_name}") " > > "${folder_name}.py"
+	echo "# $(str_to_title_case "${folder_name}") " >> "${folder_name}.py"
 
     # Create and open the .py file and readme.md file in Sublime Text
     subl "${folder_name}.py"
