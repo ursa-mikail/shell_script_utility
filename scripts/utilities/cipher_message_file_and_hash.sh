@@ -190,8 +190,19 @@ function cipher_folder_zipped_and_hash() {
     echo "Ciphered file output: $file_ciphered_out"
 }
 
-
 # Function to decipher a folder and verify its hash, then unzip it
 function decipher_folder_zipped_and_hash() {
     decipher_file_zipped_and_hash;
+}
+
+
+function hash_files_under_tree_excluding_git_files(){
+	find . -type d -name .git -prune -o -type f -print | while read -r file; do
+	  openssl dgst -sha256 "$file"
+	done
+}
+
+function hash_files_as_1_under_tree_excluding_git_files(){
+	find . -type d -name .git -prune -o -type f -print0 | sort -z | xargs -0 cat | openssl dgst -sha256
+
 }
