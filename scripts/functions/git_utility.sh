@@ -834,6 +834,92 @@ function manage_merge() {
     git branch    
 }
 
+# Delete a remote branch and prune stale refs
+git_delete_remote_branch() {
+  if [ -z "$1" ]; then
+    echo "Usage: git_delete_remote_branch <branch-name>"
+    return 1
+  fi
+  git push origin --delete "$1" 2>/dev/null
+  git fetch --prune
+}
+
+# Delete a local branch (safe, auto-switch if needed)
+git_delete_local_branch() {
+  if [ -z "$1" ]; then
+    echo "Usage: git_delete_local_branch <branch-name>"
+    return 1
+  fi
+
+  current_branch=$(git branch --show-current)
+  if [ "$current_branch" = "$1" ]; then
+    echo "You are on branch '$1'. Switching to 'main' before deletion..."
+    git checkout main || return 1
+  fi
+
+  echo -n "Are you sure you want to delete local branch '$1'? (y/N) "
+  read confirm
+  if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    git branch -D "$1"
+  else
+    echo "Aborted."
+  fi
+}
+
+
+# git_delete_branch feature-x --local   # only local
+# git_delete_branch feature-x --remote  # only remote
+# git_delete_branch feature-x --both    # local + remote (default)
+# git_delete_branch feature-x           # also defaults to both
+# Delete both local and remote branches
+git_delete_branch() {
+  if [ -z "$1" ]; then
+    echo "Usage: git_delete_branch <branch-name> [--local] [--remote] [--both]"
+    return 1
+  fi
+
+  local branch="$1"
+  local target="${2:---both}"  # default is both if no flag provided
+
+  case "$target" in
+    --local)
+      git_delete_local_branch "$branch"
+      ;;
+    --remote)
+      git_delete_remote_branch "$branch"
+      ;;
+    --both)
+      git_delete_remote_branch "$branch"
+      git_delete_local_branch "$branch"
+      ;;
+    *)
+      echo "Invalid option. Use --local, --remote, or --both."
+      return 1
+      ;;
+  esac
+}
+
+# git_create_branch feature-x         # creates and switches to branch locally
+# git_create_branch feature-x --push  # creates, switches, and pushes to origin
+# Create and switch to a new branch
+git_create_branch() {
+  if [ -z "$1" ]; then
+    echo "Usage: git_create_branch <branch-name> [--push]"
+    return 1
+  fi
+
+  local branch="$1"
+  local push_flag="$2"
+
+  # Create and switch
+  git checkout -b "$branch"
+
+  # Optionally push to remote
+  if [ "$push_flag" = "--push" ]; then
+    git push -u origin "$branch"
+  fi
+}
+
 
 function manage_branch() {
     echo "Current branches:"
