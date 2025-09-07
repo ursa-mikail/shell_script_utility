@@ -282,11 +282,26 @@ function ssh_run_and_collect() {
 # Convenience function specifically for CUDA projects
 function ssh_run_cuda() {
   local folder="$1"
-  local gpu_count="${2:-1}"
-  local num_numbers="${3:-1}"
+  local arg1="${2:-}"   # optional argument 1 (e.g., GPU count or matrix size)
+  local arg2="${3:-}"   # optional argument 2 (if needed)
   local local_log_file="${4:-cuda_logs.log}"
-  
-  local make_and_run="make clean && make && ./gen_large_rand $gpu_count $num_numbers"
+
+  # Extract target binary name from Makefile (fallback: gen_large_rand)
+  local target=$(grep -m1 '^TARGET=' "$folder/Makefile" | cut -d= -f2 | xargs)
+  if [[ -z "$target" ]]; then
+    target="gen_large_rand"
+  fi
+
+  # Construct run command
+  local make_and_run="make clean && make && ./${target}"
+  if [[ -n "$arg1" ]]; then
+    make_and_run+=" $arg1"
+  fi
+  if [[ -n "$arg2" ]]; then
+    make_and_run+=" $arg2"
+  fi
+
+  # Execute on remote
   ssh_run_and_collect "$folder" "$make_and_run" "$local_log_file"
 }
 
