@@ -345,16 +345,104 @@ function ssh_get_logs() {
   echo -e "\n========================================\n" >> "$local_log_file"
 }
 
-# Usage examples:
-#
-# Basic usage - run make and execute program:
-# ssh_run_and_collect "my_cuda_project" "make && ./gen_large_rand" "my_logs.log"
-#
-# CUDA-specific convenience function:
-# ssh_run_cuda "my_cuda_project" 2 5 "cuda_results.log"  # 2 GPUs, 5 numbers
-#
-# Just retrieve existing logs:
-# ssh_get_logs "/home/m/some_output.log" "retrieved_logs.log"
+# ssh_run_cuda_multi
+# Build and run multiple CUDA binaries in a folder remotely
+# Usage:
+#   ssh_run_cuda_multi <folder> [arg1] [arg2] [base_log_file]
+# Example:
+#   ssh_run_cuda_multi "parallel_reduction_add" 4 1024 "cuda_results.log"
+function ssh_run_cuda_multi() {
+    local folder="$1"
+    local arg1="${2:-}"
+    local arg2="${3:-}"
+    local base_log="${4:-cuda_logs.log}"
+    
+    if [[ -z "$folder" ]]; then
+        echo "Usage: ssh_run_cuda_multi <folder> [arg1] [arg2] [base_log_file]"
+        return 2
+    fi
+    
+    local makefile="$folder/Makefile"
+    if [[ ! -f "$makefile" ]]; then
+        echo "Makefile not found in $folder"
+        return 2
+    fi
+    
+    # -----------------------------
+    # Build everything first
+    # -----------------------------
+    echo "Building all targets..."
+    # The remote system puts us directly in the folder, so just run make
+    ssh_run_and_collect "$folder" "make clean && make" "$base_log"
+    
+    # -----------------------------
+    # Detect targets after building by expanding Makefile variables
+    # -----------------------------
+    local targets=""
+    
+    # Method 1: Use make to expand the TARGETS variable
+    targets=$(cd "$folder" && make -f Makefile --dry-run --print-data-base 2>/dev/null | \
+              grep -A1 "^TARGETS :=" | tail -n1 | sed 's/^#[[:space:]]*//')
+    
+    # Method 2: If that doesn't work, try parsing and expanding manually
+    if [[ -z "$targets" ]]; then
+        local srcs_line targets_line
+        srcs_line=$(grep -E '^[[:space:]]*SRCS[[:space:]]*=' "$makefile" | head -n1 | cut -d'=' -f2- | xargs)
+        targets_line=$(grep -E '^[[:space:]]*TARGETS[[:space:]]*=' "$makefile" | head -n1 | cut -d'=' -f2- | xargs)
+        
+        if [[ "$targets_line" == '$(SRCS:.cu=)' ]]; then
+            # Expand the variable manually
+            targets=$(echo "$srcs_line" | sed 's/\.cu//g')
+        else
+            targets="$targets_line"
+        fi
+    fi
+    
+    # Method 3: Fallback - detect executables that were actually built
+    if [[ -z "$targets" ]]; then
+        echo "Could not parse TARGETS from Makefile, detecting built executables..."
+        targets=$(find "$folder" -maxdepth 1 -type f -executable ! -name "*.sh" ! -name "Makefile" -printf '%f\n' 2>/dev/null | tr '\n' ' ')
+    fi
+    
+    # Final fallback
+    if [[ -z "$targets" ]]; then
+        echo "No targets found, using default"
+        targets="main"  # or whatever default makes sense
+    fi
+    
+    echo "Detected targets: $targets"
+    
+    # -----------------------------
+    # Run each target with optional args
+    # -----------------------------
+    # Convert targets string to array (zsh compatible way)
+    local target_array
+    target_array=(${=targets})  # zsh word splitting
+    
+    for t in "${target_array[@]}"; do
+        [[ -z "$t" ]] && continue  # Skip empty strings
+        
+        local run_cmd="./'$t'"  # We're already in the right directory
+        [[ -n "$arg1" ]] && run_cmd+=" $arg1"
+        [[ -n "$arg2" ]] && run_cmd+=" $arg2"
+        
+        # unique log per target
+        local log="${base_log%.*}_${t}.log"
+        [[ "$log" == "$base_log" ]] && log="${base_log}_${t}.log"
+        
+        echo "==> Running target '$t'; logging to $log"
+        ssh_run_and_collect "$folder" "$run_cmd" "$log"
+    done
+}
+
+# Usage: debug_ssh_run_cuda_multi "parallel_reduction_add"
+# Debug version to see what's actually happening
+function debug_ssh_run_cuda_multi() {
+    local folder="$1"
+    echo "=== DEBUGGING ==="
+    ssh_run_and_collect "$folder" "pwd && ls -la && find . -name 'Makefile' && find . -name '*.cu'" "debug.log"
+    cat debug.log
+}
 
 
 echo ""
