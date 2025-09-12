@@ -1098,4 +1098,594 @@ echo ""
 NOTE_BLOCK
 echo ""	
 
+#!/usr/bin/env zsh
+# git-feature-menu.zsh
+# Interactive zsh helper for a feature-branch workflow
+# Usage:
+#   chmod +x git-feature-menu.zsh
+#   ./git-feature-menu.zsh
 
+# --- Safety / UX notes ---
+# - Designed for zsh (uses zsh-style read prompts). Should work in bash for most commands,
+#   but it's optimized for zsh interactive use.
+# - The script won't force destructive actions without confirmation.
+# - If you have the GitHub CLI (`gh`) installed, the "Open PR" step will use it.
+# - Uses your $EDITOR for multi-line commit messages when requested.
+
+# Colors
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[0;33m')
+BLUE=$(printf '\033[0;34m')
+RESET=$(printf '\033[0m')
+
+# Globals
+GH_AVAILABLE=0
+DEFAULT_BRANCH="main"
+CURRENT_REPO=""
+CURRENT_BRANCH=""
+
+trap 'printf "\n${YELLOW}Interrupted. Returning to menu...${RESET}\n"' INT
+
+# --- Helpers ---
+check_requirements() {
+  if ! command -v git >/dev/null 2>&1; then
+    printf "%s\n" "${RED}Error: git not found in PATH. Install git and retry.${RESET}";
+    exit 1
+  fi
+  if command -v gh >/dev/null 2>&1; then
+    GH_AVAILABLE=1
+  fi
+}
+
+is_git_repo() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+ensure_repo_or_clone() {
+  if is_git_repo; then
+    CURRENT_REPO=$(git rev-parse --show-toplevel 2>/dev/null)
+    printf "%s\n" "${GREEN}Detected git repo: ${CURRENT_REPO}${RESET}"
+    cd "$CURRENT_REPO" || return 1
+  else
+    read "url?Repository URL to clone (git@... or https://...): "
+    if [[ -z "$url" ]]; then
+      printf "%s\n" "${YELLOW}No URL entered — returning to menu.${RESET}"; return 1
+    fi
+    git clone "$url" || { printf "%s\n" "${RED}Clone failed.${RESET}"; return 1 }
+    # cd into cloned dir
+    repo_dir=$(basename "$url" .git)
+    cd "$repo_dir" || return 1
+    CURRENT_REPO=$(pwd)
+    printf "%s\n" "${GREEN}Cloned into ${CURRENT_REPO}${RESET}"
+  fi
+  update_repo_state
+}
+
+update_repo_state() {
+  if is_git_repo; then
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+    # detect default branch from origin
+    if git remote show origin 2>/dev/null | awk '/HEAD branch/ {print $NF}' >/dev/null 2>&1; then
+      detected=$(git remote show origin 2>/dev/null | awk '/HEAD branch/ {print $NF}')
+      if [[ -n "$detected" ]]; then
+        DEFAULT_BRANCH=$detected
+      fi
+    fi
+  else
+    CURRENT_BRANCH=""
+  fi
+}
+
+confirm() {
+  # usage: confirm "Message"
+  read "ans?${1:-Are you sure?} (y/N): "
+  case "$ans" in
+    [yY]|[yY][eE][sS]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+sanitize_branch_name() {
+  # lower, replace spaces and illegal chars with '-'
+  print -r -- "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._\/-]/-/g'
+}
+
+# --- Actions ---
+action_status_log() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo. Use option 1 to clone or cd into one.${RESET}"; return; fi
+  printf "\n${BLUE}--- Status ---${RESET}\n"
+  git status --short
+  printf "\n${BLUE}--- Recent commits ---${RESET}\n"
+  git log --oneline --graph --decorate -n 20
+  read "REPLY?Press Enter to continue..."
+}
+
+action_create_branch() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo. Use option 1 to clone or cd into one.${RESET}"; return; fi
+  read "branch?Branch name (leave blank to build from issue + desc): "
+  if [[ -z "$branch" ]]; then
+    read "issue?Issue/ticket number (optional, e.g. 123): "
+    read "desc?Short description (e.g. add-search): "
+    desc_s=$(sanitize_branch_name "$desc")
+    if [[ -n "$issue" ]]; then
+      branch="feat/${issue}-${desc_s}"
+    else
+      branch="feat/${desc_s}"
+    fi
+  fi
+  if git show-ref --verify --quiet "refs/heads/$branch"; then
+    printf "%s\n" "${YELLOW}Local branch $branch already exists. Checking it out.${RESET}"
+    git checkout "$branch" || { printf "%s\n" "${RED}Failed to checkout $branch${RESET}"; return; }
+  else
+    git checkout -b "$branch" || { printf "%s\n" "${RED}Failed to create branch $branch${RESET}"; return; }
+  fi
+  CURRENT_BRANCH=$branch
+  printf "%s\n" "${GREEN}Now on branch: $CURRENT_BRANCH${RESET}"
+}
+
+action_add_and_commit() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  printf "\n${BLUE}Git status:${RESET}\n"
+  git status --short
+  read "how?Add mode: (p)atch, (a)ll, (s)elect files, (n)one: "
+  case "$how" in
+    p|P) git add -p ;;
+    a|A) git add -A ;;
+    s|S)
+      printf "%s\n" "Enter paths one per line; empty line finishes."
+      files=()
+      while true; do
+        read "f?path (blank to finish): "
+        [[ -z "$f" ]] && break
+        files+=($f)
+      done
+      if (( ${#files[@]} )); then
+        git add "${files[@]}"
+      fi
+      ;;
+    *) printf "%s\n" "No files added."; return ;;
+  esac
+
+  # commit message
+  read "use_editor?Open $EDITOR for a multi-line commit message? (y/N): "
+  if [[ "$use_editor" =~ ^([yY].*)$ ]]; then
+    tmpf=$(mktemp /tmp/gitmsg.XXXXXX)
+    ${EDITOR:-vi} "$tmpf"
+    if [[ -s "$tmpf" ]]; then
+      git commit -F "$tmpf" || { printf "%s\n" "${RED}Commit failed.${RESET}"; rm -f "$tmpf"; return; }
+    else
+      printf "%s\n" "${YELLOW}Empty message — aborting commit.${RESET}"
+      rm -f "$tmpf"
+      return
+    fi
+    rm -f "$tmpf"
+  else
+    read "msg?One-line commit message: "
+    [[ -z "$msg" ]] && { printf "%s\n" "${YELLOW}Empty message — aborting commit.${RESET}"; return; }
+    git commit -m "$msg" || { printf "%s\n" "${RED}Commit failed.${RESET}"; return; }
+  fi
+  printf "%s\n" "${GREEN}Committed successfully.${RESET}"
+}
+
+action_push_branch() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  if [[ -z "$CURRENT_BRANCH" || "$CURRENT_BRANCH" == "HEAD" ]]; then
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  fi
+  if [[ -z "$CURRENT_BRANCH" ]]; then printf "%s\n" "${RED}Could not detect current branch.${RESET}"; return; fi
+  git push -u origin "$CURRENT_BRANCH" || { printf "%s\n" "${RED}Push failed.${RESET}"; return; }
+  printf "%s\n" "${GREEN}Pushed $CURRENT_BRANCH -> origin/${CURRENT_BRANCH}${RESET}"
+}
+
+action_open_pr() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  read "title?PR title (leave blank to use last commit): "
+  if [[ -z "$title" ]]; then
+    title=$(git log -1 --pretty=%s 2>/dev/null)
+  fi
+  read "body?PR body (leave blank to open editor): "
+  if [[ -z "$body" ]]; then
+    if [[ -n "$EDITOR" ]]; then
+      tmpf=$(mktemp /tmp/prbody.XXXXXX)
+      ${EDITOR} "$tmpf"
+      body=$(cat "$tmpf")
+      rm -f "$tmpf"
+    fi
+  fi
+
+  if [[ $GH_AVAILABLE -eq 1 ]]; then
+    printf "%s\n" "${BLUE}Creating PR using gh...${RESET}"
+    gh pr create -t "$title" -b "$body" -B "$DEFAULT_BRANCH" || { printf "%s\n" "${RED}gh failed to create PR.${RESET}"; return; }
+    printf "%s\n" "${GREEN}PR created via gh.${RESET}"
+    return
+  fi
+
+  # fallback: craft GitHub compare URL from origin
+  origin_url=$(git remote get-url origin 2>/dev/null)
+  if [[ -z "$origin_url" ]]; then
+    printf "%s\n" "${RED}No origin remote detected.${RESET}"; return; fi
+
+  if [[ "$origin_url" =~ git@([^:]+):(.+)\.git ]]; then
+    host=${match[1]}
+    repo=${match[2]}
+    https_url="https://${host}/${repo}"
+  else
+    # handle https://host/user/repo(.git)
+    https_url=$(echo "$origin_url" | sed -E 's/\.git$//')
+  fi
+  pr_url="$https_url/compare/${DEFAULT_BRANCH}...${CURRENT_BRANCH}?expand=1"
+  printf "%s\n" "${GREEN}Open this URL to create a PR:${RESET}"
+  printf "%s\n" "$pr_url"
+  if command -v open >/dev/null 2>&1; then
+    open "$pr_url"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$pr_url" >/dev/null 2>&1 || true
+  fi
+}
+
+action_rebase_onto_default() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  read "branch?Branch to rebase (leave blank for current ${CURRENT_BRANCH}): "
+  branch=${branch:-$CURRENT_BRANCH}
+  if [[ -z "$branch" ]]; then printf "%s\n" "${RED}No branch specified.${RESET}"; return; fi
+  git fetch origin || { printf "%s\n" "${RED}Fetch failed.${RESET}"; return; }
+  printf "%s\n" "${BLUE}Rebasing $branch onto origin/${DEFAULT_BRANCH}...${RESET}"
+  git checkout "$branch" || { printf "%s\n" "${RED}Checkout failed.${RESET}"; return; }
+  if ! git rebase "origin/${DEFAULT_BRANCH}"; then
+    printf "%s\n" "${YELLOW}Rebase stopped due to conflicts. Resolve them, then run: git add <file>; git rebase --continue${RESET}"
+    return
+  fi
+  printf "%s\n" "${GREEN}Rebase succeeded. Remember to: git push --force-with-lease${RESET}"
+  read "do_force?Run git push --force-with-lease now? (y/N): "
+  if [[ "$do_force" =~ ^([yY].*)$ ]]; then
+    git push --force-with-lease origin "$branch" || { printf "%s\n" "${RED}Force-push failed.${RESET}"; }
+  fi
+}
+
+action_interactive_rebase() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  read "n?Number of commits to edit/squash (e.g. 4): "
+  if ! [[ "$n" =~ ^[0-9]+$ ]]; then printf "%s\n" "${YELLOW}Invalid number.${RESET}"; return; fi
+  git rebase -i "HEAD~${n}"
+}
+
+action_merge_locally() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  read "branch?Branch to merge into ${DEFAULT_BRANCH} (leave blank for current ${CURRENT_BRANCH}): "
+  branch=${branch:-$CURRENT_BRANCH}
+  if [[ -z "$branch" ]]; then printf "%s\n" "${RED}No branch specified.${RESET}"; return; fi
+  if confirm "Merge ${branch} into ${DEFAULT_BRANCH}?"; then
+    git checkout "$DEFAULT_BRANCH" || { printf "%s\n" "${RED}Checkout failed.${RESET}"; return; }
+    git pull origin "$DEFAULT_BRANCH" || { printf "%s\n" "${RED}Pull failed.${RESET}"; return; }
+    git merge --no-ff "$branch" || { printf "%s\n" "${RED}Merge failed.${RESET}"; return; }
+    git push origin "$DEFAULT_BRANCH" || { printf "%s\n" "${RED}Push failed.${RESET}"; return; }
+    printf "%s\n" "${GREEN}Merged and pushed.${RESET}"
+  fi
+}
+
+action_delete_branch() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  read "branch?Branch to delete (leave blank for current ${CURRENT_BRANCH}): "
+  branch=${branch:-$CURRENT_BRANCH}
+  if [[ -z "$branch" ]]; then printf "%s\n" "${RED}No branch specified.${RESET}"; return; fi
+  if confirm "Delete local branch ${branch}?"; then
+    git branch -d "$branch" || git branch -D "$branch" || printf "%s\n" "${YELLOW}Local delete may have failed or branch not fully merged.${RESET}";
+  fi
+  if confirm "Also delete remote origin/${branch}?"; then
+    git push origin --delete "$branch" || printf "%s\n" "${YELLOW}Remote delete may have failed.${RESET}";
+  fi
+}
+
+action_undo_last_commit() {
+  update_repo_state
+  if ! is_git_repo; then printf "%s\n" "${YELLOW}Not inside a git repo.${RESET}"; return; fi
+  printf "%s\n" "Choose undo option:"
+  printf "1) Soft reset (uncommit, keep changes staged)\n"
+  printf "2) Mixed reset (uncommit, keep changes unstaged)\n"
+  printf "3) Hard reset (DANGEROUS: discard changes)\n"
+  printf "4) Revert (create a new commit that undoes last commit)\n"
+  read "opt?Select [1-4]: "
+  case "$opt" in
+    1) git reset --soft HEAD~1 ;;
+    2) git reset --mixed HEAD~1 ;;
+    3) if confirm "Really discard working tree changes and remove last commit?"; then git reset --hard HEAD~1 ; fi ;;
+    4) git revert HEAD ;;
+    *) printf "%s\n" "${YELLOW}Cancelled.${RESET}"; return ;;
+  esac
+  printf "%s\n" "${GREEN}Done.${RESET}"
+}
+
+print_steps() {
+  cat <<-EOF
+  Step-by-step recommended flow (menu numbers):
+  1) Clone or detect repo (Menu 1)
+  2) Create a feature branch (Menu 2)
+  3) Add & commit your changes (Menu 3)
+  4) Push the branch to origin (Menu 4)
+  5) Open a PR (Menu 5)
+  6) Rebase your branch onto the latest ${DEFAULT_BRANCH} (Menu 6)
+  7) Interactive rebase / squash commits if desired (Menu 7)
+  8) Merge locally (or merge via PR) (Menu 8)
+  9) Delete branch local & remote (Menu 9)
+  10) Status & log to verify (Menu 10)
+  11) Undo last commit safely if you need to (Menu 11)
+  12) Exit
+EOF
+}
+
+# --- Menu ---
+main_menu_git() {
+  check_requirements
+  while true; do
+    update_repo_state
+    printf "\n${BLUE}=== Git Feature Menu ===${RESET}\n"
+    printf "Current repo: %s\n" "${CURRENT_REPO:-(none)}"
+    printf "Current branch: %s\n" "${CURRENT_BRANCH:-(none)}"
+    printf "Default branch: %s\n\n" "${DEFAULT_BRANCH}"
+    printf "1) Clone / Detect repo\n"
+    printf "2) Create or checkout feature branch\n"
+    printf "3) Add & commit changes\n"
+    printf "4) Push current branch to origin\n"
+    printf "5) Open PR (gh or web fallback)\n"
+    printf "6) Rebase branch onto %s\n" "${DEFAULT_BRANCH}"
+    printf "7) Interactive rebase (squash / fixup)\n"
+    printf "8) Merge branch into ${DEFAULT_BRANCH} locally\n"
+    printf "9) Delete branch (local & remote)\n"
+    printf "10) Status & recent commits\n"
+    printf "11) Undo last commit\n"
+    printf "12) Show quick steps\n"
+    printf "q) Quit\n"
+    read "choice?Choose an option: "
+    case "$choice" in
+      1) ensure_repo_or_clone ;;
+      2) action_create_branch ;;
+      3) action_add_and_commit ;;
+      4) action_push_branch ;;
+      5) action_open_pr ;;
+      6) action_rebase_onto_default ;;
+      7) action_interactive_rebase ;;
+      8) action_merge_locally ;;
+      9) action_delete_branch ;;
+      10) action_status_log ;;
+      11) action_undo_last_commit ;;
+      12) print_steps ;;
+      q|Q) printf "%s\n" "${GREEN}Goodbye!${RESET}"; break ;;
+      *) printf "%s\n" "${YELLOW}Unknown option — try again.${RESET}" ;;
+    esac
+  done
+}
+
+# --- Entrypoint ---
+# main_menu_git
+
+echo ""
+: <<'NOTE_BLOCK'
+
+Practices & checklist before merging
+✅ Small, focused PR (ideally <500 lines changed).
+✅ Passes CI (tests + linters).
+✅ Good commit messages (or use squash).
+✅ Linked to an issue / ticket.
+✅ At least one approving review.
+✅ Rebased onto latest main (or merge conflicts resolved).
+✅ Changelog or release notes updated (if required).
+
+1) Clone / Detect repo
+
+Menu: 1
+Prompt: Repository URL to clone (git@... or https://...): → you type:
+
+git@github.com:your-org/awesome-app.git
+
+
+Script runs:
+
+git clone git@github.com:your-org/awesome-app.git
+cd awesome-app
+
+
+Output (example):
+
+Cloned into /home/me/awesome-app
+Detected git repo: /home/me/awesome-app
+
+2) Create or checkout a feature branch
+
+Menu: 2
+Prompt: Branch name (leave blank to build from issue + desc): → leave blank
+Prompt: Issue/ticket number (optional, e.g. 123): → 123
+Prompt: Short description (e.g. add-search): → add-search
+
+Script builds feat/123-add-search and runs:
+
+git checkout -b feat/123-add-search
+
+
+Output:
+
+Switched to a new branch 'feat/123-add-search'
+Now on branch: feat/123-add-search
+
+3) Add & commit changes
+
+Menu: 3
+Script shows git status --short. You type a to add all changed files.
+Prompt: Open $EDITOR for multi-line? (y/N): → n
+Prompt: One-line commit message: →
+
+feat(search): add basic server-side search endpoint
+
+
+Script runs:
+
+git add -A
+git commit -m "feat(search): add basic server-side search endpoint"
+
+
+Output:
+
+[feat/123-add-search 1a2b3c4] feat(search): add basic server-side search endpoint
+ 5 files changed, 120 insertions(+), 2 deletions(-)
+Committed successfully.
+
+4) Push current branch to origin
+
+Menu: 4
+Script runs:
+
+git push -u origin feat/123-add-search
+
+
+Output:
+
+Counting objects: ... done
+Pushed feat/123-add-search -> origin/feat/123-add-search (upstream set)
+
+5) Open PR
+
+Menu: 5
+Script checks for gh. If gh exists it will run:
+
+gh pr create -t "feat(search): add basic server-side search endpoint" -b "<body>" -B main
+
+
+If gh not available it prints a URL:
+
+Open this URL to create a PR:
+https://github.com/your-org/awesome-app/compare/main...feat/123-add-search?expand=1
+
+
+(Your browser may open automatically if open or xdg-open exists.)
+
+6) Rebase branch onto default (main)
+
+Menu: 6
+Prompt: Branch to rebase (leave blank for current): → press Enter
+Script runs:
+
+git fetch origin
+git checkout feat/123-add-search
+git rebase origin/main
+
+
+If rebase succeeds: script suggests git push --force-with-lease.
+
+If there’s a conflict it prints:
+
+Rebase stopped due to conflicts. Resolve them, then run:
+  git add <file>
+  git rebase --continue
+or abort: git rebase --abort
+
+
+Conflict resolution example:
+
+# edit files to remove conflict markers
+git add src/search.js
+git rebase --continue
+# after success
+git push --force-with-lease origin feat/123-add-search
+
+7) Interactive rebase (squash/fixup)
+
+Menu: 7
+Prompt: Number of commits to edit/squash (e.g. 4): → 3
+Script runs:
+
+git rebase -i HEAD~3
+
+
+You’ll get the editor to mark pick/s/f. After the rebase, if history changed:
+
+git push --force-with-lease
+
+8) Merge branch into main locally
+
+Menu: 8
+Prompt: Branch to merge into main (leave blank for current): → press Enter
+Confirm Merge feat/123-add-search into main? (y/N): → y
+Script runs:
+
+git checkout main
+git pull origin main
+git merge --no-ff feat/123-add-search
+git push origin main
+
+
+Output:
+
+Merge made by the 'recursive' strategy.
+ Pushed main
+Merged and pushed.
+
+
+(Or use the PR UI to merge instead.)
+
+9) Delete branch (local & remote)
+
+Menu: 9
+Prompt: Branch to delete (leave blank for current): → feat/123-add-search
+Confirm local deletion: y
+Script runs:
+
+git branch -d feat/123-add-search   # falls back to -D if needed
+
+
+Confirm remote deletion: y
+Script runs:
+
+git push origin --delete feat/123-add-search
+
+
+Output:
+
+Deleted branch feat/123-add-search (was abc1234).
+To github.com:your-org/awesome-app.git
+ - [deleted]         feat/123-add-search
+
+10) Status & recent commits
+
+Menu: 10
+Script runs:
+
+git status --short
+git log --oneline --graph --decorate -n 20
+
+
+Use this to verify everything looks good.
+
+11) Undo last commit (if needed)
+
+Menu: 11
+Options prompt (choose e.g. 1 for soft reset). Example: 1 runs:
+
+git reset --soft HEAD~1
+
+
+That leaves changes staged so you can edit the commit and recommit.
+
+12) Show quick steps
+
+Menu: 12
+Script prints the one-line checklist (clone → branch → commit → push → PR → rebase → merge → cleanup).
+
+Quit
+
+Menu: q → exits.
+
+
+Note: If you get stuck during a rebase: git rebase --abort returns you to the pre-rebase state.
+
+
+NOTE_BLOCK
+echo ""	
