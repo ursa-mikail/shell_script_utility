@@ -246,7 +246,11 @@ function ssh_run_and_collect() {
   fi
   echo "[$timestamp] Unzipped successfully"
   
-  # Step 3: Run command on remote and capture output
+  # Step 3: Build if Makefile exists
+  echo "[$timestamp] Checking for Makefile and building..."
+  sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "cd ${remote_path}${folder} && if [ -f Makefile ]; then make all 2>&1; fi"
+  
+  # Step 4: Run command on remote and capture output
   echo "[$timestamp] Running command: $remote_command"
   local remote_log="/tmp/run_output_$$.log"
   local run_command="cd ${remote_path}${folder} && { $remote_command; } 2>&1 | tee $remote_log"
@@ -255,7 +259,7 @@ function ssh_run_and_collect() {
     echo "WARNING: Remote command may have failed (non-zero exit code)"
   fi
   
-  # Step 4: Retrieve logs and append to local file
+  # Step 5: Retrieve logs and append to local file
   echo "[$timestamp] Retrieving logs..."
   {
     echo "========================================="

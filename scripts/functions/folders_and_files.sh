@@ -256,18 +256,20 @@ function create_and_open_file(){
 	subl $file_name
 } 
 
-function zip_folder(){
-	if [ "$1" == "" ] # not specified 
-	then	# use current_folder as name
-		current_folder_name=${PWD##*/};
-	else
-		current_folder_name=$1;	
-	fi;
-	
-	echo $current_folder_name;
-	time_stamp=$(date +"%Y-%m-%d_%H%Mhr_%S"sec) ; 
-	zip -r "$current_folder_name"_$time_stamp.zip .; 
+function zip_folder() {
+    if [ "$1" = "" ]; then
+        current_folder_name=${PWD##*/}
+        target="."
+    else
+        current_folder_name=$1
+        target="$1"
+    fi
+
+    echo "Zipping folder: $current_folder_name"
+    time_stamp=$(date +"%Y-%m-%d_%H%Mhr_%Ssec")
+    zip -r "${current_folder_name}_${time_stamp}.zip" "$target"
 }
+
 
 # Example usage: zip_file ./sample_data/california_housing_test.csv
 function zip_file() {
