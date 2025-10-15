@@ -502,7 +502,6 @@ END
 echo ""
 
 
-
 #!/bin/bash
 # ============================================================================
 # UEFI SSH Functions - Works with Your Existing SSH Setup
@@ -713,20 +712,36 @@ function ssh_build_and_sign_uefi() {
 }
 
 # ============================================================================
-# UEFI QEMU Execution Function
+# UEFI QEMU Execution Function with Logging
 # ============================================================================
 function ssh_run_uefi_qemu() {
     local folder="$1"
     local timeout="${2:-30}"
     local remote_path="${3:-/home/m/}"
     
+    # Create logs directory
+    mkdir -p logs
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local log_file="logs/${folder}_qemu_${timestamp}.log"
+    
     echo "════════════════════════════════════════════════════════════════════"
     echo "UEFI QEMU Execution: $folder"
     echo "════════════════════════════════════════════════════════════════════"
     echo ""
     
+    # Start logging
+    {
+        echo "════════════════════════════════════════════════════════════════════"
+        echo "UEFI QEMU Execution Log - $(date)"
+        echo "Folder: $folder"
+        echo "Remote: $SSH_HOST:${remote_path}${folder}"
+        echo "Timeout: ${timeout}s"
+        echo "════════════════════════════════════════════════════════════════════"
+        echo ""
+    } | tee "$log_file"
+    
     if [ ! -d "$folder" ]; then
-        echo "ERROR: Folder '$folder' does not exist."
+        echo "ERROR: Folder '$folder' does not exist." | tee -a "$log_file"
         return 1
     fi
     
@@ -734,58 +749,58 @@ function ssh_run_uefi_qemu() {
     local RSYNC_CMD=$(get_rsync_cmd)
     
     # Transfer files
-    echo "[1/6] Transferring files..."
+    echo "[1/6] Transferring files..." | tee -a "$log_file"
     eval "$RSYNC_CMD -avz --delete \
         --exclude='.git' \
         --exclude='*.o' \
         --exclude='*.so' \
         --exclude='*.efi' \
         --exclude='obj/' \
-        ./${folder}/ ${SSH_HOST}:${remote_path}${folder}/" 2>&1 | grep -E "(sending|sent|total)"
+        ./${folder}/ ${SSH_HOST}:${remote_path}${folder}/" 2>&1 | tee -a "$log_file" | grep -E "(sending|sent|total)"
     
-    echo "✓ Files transferred"
-    echo ""
+    echo "✓ Files transferred" | tee -a "$log_file"
+    echo "" | tee -a "$log_file"
     
     # Build
-    echo "[2/6] Building..."
-    eval "$SSH_CMD 'cd ${remote_path}${folder} && make clean && make all'"
+    echo "[2/6] Building..." | tee -a "$log_file"
+    eval "$SSH_CMD 'cd ${remote_path}${folder} && make clean && make all'" 2>&1 | tee -a "$log_file"
     
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Build failed"
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        echo "ERROR: Build failed" | tee -a "$log_file"
         return 1
     fi
     
     # Sign
-    echo ""
-    echo "[3/6] Signing..."
-    eval "$SSH_CMD 'cd ${remote_path}${folder} && make sign'"
+    echo "" | tee -a "$log_file"
+    echo "[3/6] Signing..." | tee -a "$log_file"
+    eval "$SSH_CMD 'cd ${remote_path}${folder} && make sign'" 2>&1 | tee -a "$log_file"
     
     # Verify
-    echo ""
-    echo "[4/6] Verifying..."
-    eval "$SSH_CMD 'cd ${remote_path}${folder} && make verify'"
+    echo "" | tee -a "$log_file"
+    echo "[4/6] Verifying..." | tee -a "$log_file"
+    eval "$SSH_CMD 'cd ${remote_path}${folder} && make verify'" 2>&1 | tee -a "$log_file"
     
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Verification failed - aborting QEMU execution"
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        echo "ERROR: Verification failed - aborting QEMU execution" | tee -a "$log_file"
         return 1
     fi
     
     # Prepare QEMU disk
-    echo ""
-    echo "[5/6] Preparing QEMU disk image..."
+    echo "" | tee -a "$log_file"
+    echo "[5/6] Preparing QEMU disk image..." | tee -a "$log_file"
     eval "$SSH_CMD 'cd ${remote_path}${folder} && \
         rm -f disk.img && \
         dd if=/dev/zero of=disk.img bs=1M count=10 2>/dev/null && \
         mkfs.fat -F 32 disk.img >/dev/null 2>&1 && \
-        mcopy -i disk.img *.efi ::/ 2>/dev/null && \
+        mcopy -i disk.img helloworld.efi secure_loader.efi ::/ 2>/dev/null && \
         echo \"helloworld.efi\" > startup.nsh && \
         mcopy -i disk.img startup.nsh ::/ 2>/dev/null && \
-        echo \"✓ Disk image ready\"'"
+        echo \"✓ Disk image ready\"'" 2>&1 | tee -a "$log_file"
     
     # Run in QEMU
-    echo ""
-    echo "[6/6] Running in QEMU (timeout: ${timeout}s)..."
-    echo "────────────────────────────────────────────────────────────────────"
+    echo "" | tee -a "$log_file"
+    echo "[6/6] Running in QEMU (timeout: ${timeout}s)..." | tee -a "$log_file"
+    echo "────────────────────────────────────────────────────────────────────" | tee -a "$log_file"
     eval "$SSH_CMD 'cd ${remote_path}${folder} && \
         timeout ${timeout}s qemu-system-x86_64 \
             -bios /usr/share/ovmf/OVMF.fd \
@@ -793,13 +808,14 @@ function ssh_run_uefi_qemu() {
             -net none \
             -nographic \
             -monitor none \
-            -serial stdio 2>/dev/null || true'"
-    echo "────────────────────────────────────────────────────────────────────"
+            -serial stdio 2>/dev/null || true'" 2>&1 | tee -a "$log_file"
+    echo "────────────────────────────────────────────────────────────────────" | tee -a "$log_file"
     
-    echo ""
-    echo "════════════════════════════════════════════════════════════════════"
-    echo "✓ QEMU execution complete!"
-    echo "════════════════════════════════════════════════════════════════════"
+    echo "" | tee -a "$log_file"
+    echo "════════════════════════════════════════════════════════════════════" | tee -a "$log_file"
+    echo "✓ QEMU execution complete!" | tee -a "$log_file"
+    echo "Log saved to: $log_file" | tee -a "$log_file"
+    echo "════════════════════════════════════════════════════════════════════" | tee -a "$log_file"
     
     return 0
 }
@@ -815,12 +831,31 @@ function ssh_download_uefi() {
     echo "Downloading UEFI artifacts from remote..."
     
     local SCP_CMD=$(get_scp_cmd)
+    local SSH_CMD=$(get_ssh_cmd)
     
     mkdir -p "$local_dest"
     
-    eval "$SCP_CMD ${SSH_HOST}:${remote_path}${folder}/*.efi ${SSH_HOST}:${remote_path}${folder}/*.sig $local_dest/ 2>/dev/null" || true
+    # First, check what files exist on remote
+    echo "Checking remote files..."
+    eval "$SSH_CMD 'cd ${remote_path}${folder} && ls -1 *.efi *.sig 2>/dev/null || echo \"No files found\"'"
     
-    if [ -f "$local_dest/helloworld.efi" ]; then
+    # Download files individually to avoid glob expansion issues
+    echo "Downloading files..."
+    
+    # Download .efi files
+    eval "$SSH_CMD 'cd ${remote_path}${folder} && find . -maxdepth 1 -name \"*.efi\" -print0'" | while IFS= read -r -d '' file; do
+        local filename=$(basename "$file")
+        eval "$SCP_CMD ${SSH_HOST}:${remote_path}${folder}/${filename} $local_dest/ 2>/dev/null" && echo "  ✓ $filename" || echo "  ✗ $filename (failed)"
+    done
+    
+    # Download .sig files
+    eval "$SSH_CMD 'cd ${remote_path}${folder} && find . -maxdepth 1 -name \"*.sig\" -print0'" | while IFS= read -r -d '' file; do
+        local filename=$(basename "$file")
+        eval "$SCP_CMD ${SSH_HOST}:${remote_path}${folder}/${filename} $local_dest/ 2>/dev/null" && echo "  ✓ $filename" || echo "  ✗ $filename (failed)"
+    done
+    
+    # Check if we got anything
+    if [ -f "$local_dest/helloworld.efi" ] || [ -f "$local_dest/secure_loader.efi" ]; then
         echo "✓ Downloaded to: $local_dest/"
         ls -lh "$local_dest/"
         return 0
@@ -847,7 +882,8 @@ function ssh_uefi_pipeline() {
     # Build and sign
     ssh_build_and_sign_uefi "$folder" "$remote_path"
     
-    if [ $? -ne 0 ]; then
+    local build_result=$?
+    if [ $build_result -ne 0 ]; then
         echo ""
         echo "✗ Pipeline failed at build/sign stage"
         return 1
@@ -858,7 +894,7 @@ function ssh_uefi_pipeline() {
     ssh_download_uefi "$folder" "$remote_path"
     
     # Optionally run QEMU
-    if [ "$run_qemu" == "true" ]; then
+    if [ "$run_qemu" = "true" ]; then
         echo ""
         ssh_run_uefi_qemu "$folder" 30 "$remote_path"
     fi
