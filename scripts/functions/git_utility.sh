@@ -1689,3 +1689,94 @@ Note: If you get stuck during a rebase: git rebase --abort returns you to the pr
 
 NOTE_BLOCK
 echo ""	
+
+# compact graph of recent commits
+git_log_graph() {
+  git log --graph --decorate --oneline --all --abbrev-commit "$@"
+}
+
+# pretty graph with author and relative time
+git_log_pretty() {
+  git log --graph --decorate --pretty=format:'%C(yellow)%h%C(reset) %C(green)%cr%C(reset) %C(bold)%an%C(reset) %C(red)%d%C(reset)%n  %s%n' "$@"
+}
+
+# history for a single file (follows renames)
+git_log_file() {
+  if [ -z "$1" ]; then
+    echo "Usage: git_log_file <path>"
+    return 1
+  fi
+  git log --follow --pretty=format:'%h %cr %an %s' -- "$1"
+}
+
+# commits by author in last N days (default 30)
+git_log_author_since() {
+  local author="$1"; shift
+  local days="${1:-30}"; shift
+  git log --author="$author" --since="${days}.days" --pretty=format:'%h %cr %an %s' "$@"
+}
+
+# show diffs for commits that touch a particular string (-S)
+git_log_search_content() {
+  local pattern="$1"
+  if [ -z "$pattern" ]; then
+    echo "Usage: git_log_search_content <string>"
+    return 1
+  fi
+  git log -p -S"$pattern" --pretty=format:'commit %H%n%an <%ae> %cd%n%n%s%n' "$@"
+}
+
+# summary: commits with file change counts (--stat)
+git_log_stats() {
+  git log --pretty=format:'%C(yellow)%h%C(reset) %C(green)%cr%C(reset) %C(bold)%an%C(reset) %C(red)%d%C(reset)%n  %s%n' --stat "$@"
+}
+
+
+# Function: git_activity
+# Description: Generate a compact git activity report for the last 30 days
+# Usage: git_activity [output_file] [extra_git_args...]
+# Example: git_activity my_report.txt --author="mikail-eliyah-00"
+# git log --pretty=format:"%h %an <%ae>"
+git_activity() {
+  local OUT="${1:-git-activity.txt}"   # Output file (default)
+  shift || true                        # Remove output file argument if provided
+
+  echo "Generating git activity to $OUT ..."
+  git log --graph --decorate \
+    --pretty=format:'%h %cr %an %s' \
+    --since="30 days ago" \
+    --stat "$@" > "$OUT"
+
+  if [ $? -eq 0 ]; then
+    echo "✅ Done. File saved to: $OUT"
+  else
+    echo "❌ Failed to generate report." >&2
+  fi
+}
+
+git_activity_display() {
+  local AUTHOR_NAME=$(git config user.name)
+  local OUT="${1:-git-activity.txt}"
+  shift || true
+
+  echo "Generating git activity for author: $AUTHOR_NAME"
+  git log --author="$AUTHOR_NAME" \
+    --graph --decorate \
+    --pretty=format:'%h %cr %an %s' \
+    --since="30 days ago" \
+    --stat "$@" > "$OUT"
+  echo "✅ Saved to $OUT"
+}
+
+
+# Function: git_authors
+# Description: Show all unique authors in current repository
+# Usage: git_authors [branch|range]
+# Example: git_authors main..feature
+git_authors() {
+  local RANGE="${1:-HEAD}"
+  echo "Listing authors for ${RANGE}:"
+  git shortlog -sne "$RANGE"
+}
+
+
