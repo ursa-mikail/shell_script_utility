@@ -297,6 +297,465 @@ function gpick() {
     git_view_and_pick "${1:-15}"
 }
 
+
+echo ""
+: <<'NOTE_BLOCK'
+
+# Full menu
+git_branch_operations
+
+# Individual commands
+gbranch        # List branches with numbers
+gswitch        # Interactive switch
+gswitch 2      # Switch to branch #2
+gswitch main   # Switch to main
+
+gnew           # Interactive create
+gnew feature/x # Create feature/x
+
+gmerge         # Interactive merge
+gmerge 3       # Merge branch #3
+gmerge feature/x # Merge specific branch
+
+gdelete        # Interactive delete
+gdelete 1      # Delete branch #1
+gdelete old-branch # Delete by name
+
+ggraph         # Show graph (20 commits)
+ggraph 50      # Show 50 commits
+
+gdiff          # Compare current with another
+gdiff main feature/x # Compare two branches
+
+gstatus        # Quick status
+gbranch-help   # Show commands
+
+NOTE_BLOCK
+echo ""	
+
+# List branches with numbered selection
+function gbranch() {
+    echo "🌿 Branches:"
+    echo "============"
+    echo "Current: $(git branch --show-current)"
+    echo ""
+    
+    local branches=()
+    while IFS= read -r branch; do
+        branches+=("$(echo "$branch" | sed 's/^\*\? *//')")
+    done < <(git branch --list --color=always)
+    
+    for i in "${!branches[@]}"; do
+        if [[ "${branches[$i]}" == "$(git branch --show-current)" ]]; then
+            echo "  [$i] 🌟 ${branches[$i]} (current)"
+        else
+            echo "  [$i]   ${branches[$i]}"
+        fi
+    done
+}
+
+# Switch to branch by number or name
+function gswitch() {
+    if [[ -n "$1" ]]; then
+        git checkout "$1"
+        return
+    fi
+    
+    echo "🔄 Switch branch:"
+    local branches=()
+    while IFS= read -r branch; do
+        branches+=("$(echo "$branch" | sed 's/^\*\? *//')")
+    done < <(git branch --list)
+    
+    for i in "${!branches[@]}"; do
+        echo "  [$i] ${branches[$i]}"
+    done
+    
+    echo ""
+    read -r -p "Enter number or name: " choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -lt "${#branches[@]}" ]]; then
+        git checkout "${branches[$choice]}"
+    elif [[ -n "$choice" ]]; then
+        git checkout "$choice"
+    fi
+}
+
+# Create branch with examples
+function gnew() {
+    if [[ -n "$1" ]]; then
+        git checkout -b "$1"
+        echo "✅ Created: $1"
+        return
+    fi
+    
+    echo "🆕 Create new branch"
+    echo "Example: feature/login, bugfix/123, release/v1.2"
+    read -r -p "Branch name: " name
+    [[ -n "$name" ]] && git checkout -b "$name"
+}
+
+# Merge with preview
+function gmerge() {
+    current=$(git branch --show-current)
+    
+    if [[ -n "$1" ]]; then
+        echo "🔍 Preview $1 → $current:"
+        git log --oneline "$1" --not "$current" | head -5
+        echo ""
+        read -r -p "Merge? (y/n): " confirm
+        [[ "$confirm" == "y" ]] && git merge "$1"
+        return
+    fi
+    
+    echo "🔀 Merge into $current:"
+    local branches=()
+    while IFS= read -r branch; do
+        branch=$(echo "$branch" | sed 's/^\*\? *//')
+        [[ "$branch" != "$current" ]] && branches+=("$branch")
+    done < <(git branch --list)
+    
+    for i in "${!branches[@]}"; do
+        echo "  [$i] ${branches[$i]}"
+    done
+    
+    echo ""
+    read -r -p "Branch to merge (number or name): " choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -lt "${#branches[@]}" ]]; then
+        target="${branches[$choice]}"
+    else
+        target="$choice"
+    fi
+    
+    [[ -n "$target" ]] && git merge "$target"
+}
+
+# Delete branch safely
+function gdelete() {
+    current=$(git branch --show-current)
+    
+    if [[ -n "$1" ]]; then
+        if [[ "$1" == "$current" ]]; then
+            echo "❌ Cannot delete current branch"
+            return
+        fi
+        echo "🗑️  Delete branch: $1"
+        read -r -p "Force delete? (y/n): " force
+        if [[ "$force" == "y" ]]; then
+            git branch -D "$1"
+        else
+            git branch -d "$1"
+        fi
+        return
+    fi
+    
+    echo "🗑️  Delete branch:"
+    local branches=()
+    while IFS= read -r branch; do
+        branch=$(echo "$branch" | sed 's/^\*\? *//')
+        [[ "$branch" != "$current" ]] && branches+=("$branch")
+    done < <(git branch --list)
+    
+    for i in "${!branches[@]}"; do
+        echo "  [$i] ${branches[$i]}"
+    done
+    
+    echo ""
+    read -r -p "Branch to delete (number or name): " choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -lt "${#branches[@]}" ]]; then
+        target="${branches[$choice]}"
+    else
+        target="$choice"
+    fi
+    
+    [[ -n "$target" ]] && git branch -d "$target"
+}
+
+# Simple branch graph
+function ggraph() {
+    git log --oneline --graph --all --decorate --color=always -n "${1:-20}"
+}
+
+# Compare two branches
+function gdiff() {
+    if [[ -n "$1" ]] && [[ -n "$2" ]]; then
+        echo "📊 Comparing $1 vs $2:"
+        git log --oneline "$1" --not "$2" | head -10
+        return
+    fi
+    
+    current=$(git branch --show-current)
+    echo "📊 Compare $current with:"
+    
+    local branches=()
+    while IFS= read -r branch; do
+        branch=$(echo "$branch" | sed 's/^\*\? *//')
+        [[ "$branch" != "$current" ]] && branches+=("$branch")
+    done < <(git branch --list)
+    
+    for i in "${!branches[@]}"; do
+        echo "  [$i] ${branches[$i]}"
+    done
+    
+    echo ""
+    read -r -p "Other branch (number or name): " choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -lt "${#branches[@]}" ]]; then
+        other="${branches[$choice]}"
+    else
+        other="$choice"
+    fi
+    
+    [[ -n "$other" ]] && git log --oneline "$current" --not "$other" | head -15
+}
+
+# Branch status
+function gstatus() {
+    echo "📍 $(git branch --show-current)"
+    echo "📦 $(git status -s | wc -l) changes"
+    git status -sb
+}
+
+# Help
+function gbranch-help() {
+    echo "🌿 Git Branch Commands:"
+    echo "gbranch      - List numbered branches"
+    echo "gswitch      - Switch by number/name"
+    echo "gnew         - Create branch"
+    echo "gmerge       - Merge with preview"
+    echo "gdelete      - Delete branch"
+    echo "ggraph       - Visual graph"
+    echo "gdiff        - Compare branches"
+    echo "gstatus      - Quick status"
+    echo "gbranch-help - This help"
+}
+
+
+
+echo ""
+: <<'NOTE_BLOCK'
+
+# Full menu
+git_history_operations
+
+# Individual commands
+glog           # Last 20 commits
+glog 50        # Last 50 commits
+
+glogd          # Last 10 commits
+glogd graph    # Graph view (15 commits)
+glogd graph 30 # Graph view (30 commits)
+glogd stat     # With file stats
+
+gdiff          # Unstaged changes
+gdiff staged   # Staged changes
+gdiff branch main  # Compare with main
+gdiff file path/to/file  # File changes
+gdiff word     # Word-level diff
+
+gblame         # Interactive blame
+gblame file.txt # Blame specific file
+gblame file.txt summary # Author summary
+gblame file.txt lines "10-20" # Specific lines
+
+gpick          # Interactive cherry-pick
+gpick abc123   # Pick specific commit
+
+gsearch        # Show search options
+gsearch msg "fix"    # Search for "fix" in messages
+gsearch code "TODO"  # Search for "TODO" in code
+gsearch author "John" # John's commits
+
+gshow          # Show HEAD commit
+gshow abc123   # Show specific commit
+
+ghistory       # Interactive file history
+ghistory file.txt # File history
+ghistory file.txt 20 # Last 20 changes to file
+
+gstat          # Quick status
+ghistory-help  # Show all commands
+
+NOTE_BLOCK
+echo ""	
+
+# Clean commit history
+function glog() {
+    local count=${1:-20}
+    git log --oneline -n "$count" --color=always
+}
+
+# Detailed log with options
+function glogd() {
+    case "${1:-}" in
+        graph)
+            git log --oneline --graph --all --decorate -n "${2:-15}" --color=always
+            ;;
+        stat)
+            git log --stat -n "${2:-10}" --color=always
+            ;;
+        author)
+            git log --format="%an" | sort -u | head -10
+            ;;
+        *)
+            git log --oneline -n "${1:-10}" --color=always
+            ;;
+    esac
+}
+
+# Smart diff function
+function gdiff() {
+    case "${1:-}" in
+        staged)
+            git diff --cached --color=always
+            ;;
+        branch)
+            git diff "$(git branch --show-current)" "${2:-main}" --color=always
+            ;;
+        file)
+            git diff -- "${2}" --color=always
+            ;;
+        word)
+            git diff --word-diff --color=always
+            ;;
+        stash)
+            git diff "stash@{$2:-0}" --color=always
+            ;;
+        *)
+            git diff --color=always
+            ;;
+    esac
+}
+
+# Blame with options
+function gblame() {
+    if [[ -z "$1" ]]; then
+        echo "Changed files:"
+        git status --short | head -10
+        echo ""
+        read -r -p "File to blame: " file
+        [[ -n "$file" ]] && git blame "$file" --color=always | head -30
+        return
+    fi
+    
+    case "${2:-}" in
+        summary)
+            git blame --line-porcelain "$1" | grep "^author " | sort | uniq -c | sort -rn
+            ;;
+        lines)
+            git blame -L "${3}" "$1" --color=always
+            ;;
+        *)
+            git blame "$1" --color=always | head -30
+            ;;
+    esac
+}
+
+# Cherry-pick with preview
+function gpick() {
+    if [[ -z "$1" ]]; then
+        echo "Recent commits:"
+        git log --oneline -n 15 --color=always
+        echo ""
+        read -r -p "Commit hash to pick: " commit
+        [[ -n "$commit" ]] && git cherry-pick "$commit"
+        return
+    fi
+    
+    # Preview commit before picking
+    echo "🔍 Preview of $1:"
+    git show --stat "$1" --color=always
+    echo ""
+    read -r -p "Apply this commit? (y/n): " confirm
+    [[ "$confirm" == "y" ]] && git cherry-pick "$1"
+}
+
+# Search commits
+function gsearch() {
+    if [[ -z "$1" ]]; then
+        echo "Search options:"
+        echo "  gsearch msg 'fix'      - Search commit messages"
+        echo "  gsearch code 'TODO'    - Search code changes"
+        echo "  gsearch author 'John'  - Search author's commits"
+        return
+    fi
+    
+    case "$1" in
+        msg)
+            git log --oneline --grep="$2" -n 20 --color=always
+            ;;
+        code)
+            git log -p --grep="$2" -n 10 --color=always | head -100
+            ;;
+        author)
+            git log --author="$2" --oneline -n 15 --color=always
+            ;;
+        file)
+            git log --oneline --follow -- "$2" -n 15 --color=always
+            ;;
+        *)
+            git log --grep="$1" --oneline -n 15 --color=always
+            ;;
+    esac
+}
+
+# Show commit details
+function gshow() {
+    local commit=${1:-HEAD}
+    git show "$commit" --stat --color=always
+}
+
+# File history
+function ghistory() {
+    if [[ -z "$1" ]]; then
+        echo "Changed files:"
+        git status --short | head -10
+        echo ""
+        read -r -p "File to view history: " file
+        [[ -n "$file" ]] && git log --oneline -- "$file" -n 10 --color=always
+        return
+    fi
+    
+    git log --oneline --follow -- "$1" -n "${2:-10}" --color=always
+}
+
+# Quick status
+function gstat() {
+    echo "📍 $(git branch --show-current)"
+    echo "📦 $(git status --short | wc -l) changes"
+    git status -sb
+}
+
+# Help
+function ghistory-help() {
+    echo "📜 Git History Commands:"
+    echo "========================"
+    echo "glog           - Clean history (20 commits)"
+    echo "glogd          - Detailed log"
+    echo "glogd graph    - Graph view"
+    echo "glogd stat     - With stats"
+    echo ""
+    echo "gdiff          - Show changes"
+    echo "gdiff staged   - Staged changes"
+    echo "gdiff branch   - Compare branches"
+    echo "gdiff file     - File changes"
+    echo ""
+    echo "gblame         - Who changed what"
+    echo "gblame summary - Author summary"
+    echo ""
+    echo "gpick          - Cherry-pick commit"
+    echo "gsearch        - Search commits"
+    echo "gsearch msg    - Search messages"
+    echo "gsearch code   - Search code"
+    echo ""
+    echo "gshow          - Commit details"
+    echo "ghistory       - File history"
+    echo "gstat          - Quick status"
+    echo "ghistory-help  - This help"
+}
+
 function fetch_and_check_diff(){
 	# Fetch the latest changes
 	git fetch origin
