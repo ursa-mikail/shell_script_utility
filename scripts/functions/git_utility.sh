@@ -13,6 +13,7 @@ function git_commit_and_push_to_main (){
 	# git push origin <branch_name>
 }
 
+
 # % get_commits_in_range "2024-11-01" "2024-11-25"
 function get_commits_in_range() {
     local start_date="$1"
@@ -23,6 +24,278 @@ function get_commits_in_range() {
     done
 }
 
+function git_undo_operations() {
+    echo "📦 Git Undo Operations"
+    echo "======================="
+    echo "1) Reset --hard (nuclear option - undo everything)"
+    echo "2) Revert commit (undo politely - keeps history)"
+    echo "3) Stash changes (hide temporarily)"
+    echo "4) Pop stash (bring back stashed changes)"
+    echo "5) View recent commits"
+    echo "6) View and choose commit to revert"
+    echo "7) View stash list"
+    echo "8) Clear stash"
+    echo "q) Quit"
+    echo ""
+    
+    read -r -p "Choice (1-8 or q): " choice
+    
+    case $choice in
+        1)
+            echo "⚠️  WARNING: This will discard all uncommitted changes!"
+            echo "It cannot be undone!"
+            read -r -p "Are you sure? (yes/no): " confirm
+            if [[ "$confirm" == "yes" || "$confirm" == "y" ]]; then
+                git reset --hard
+                echo "✅ Hard reset completed"
+            else
+                echo "Operation cancelled"
+            fi
+            ;;
+        2)
+            echo "📝 Enter commit hash to revert (e.g., abc123def)"
+            echo "   Or press Enter to view recent commits first"
+            read -r -p "Commit hash: " commit_hash
+            
+            if [[ -z "$commit_hash" ]]; then
+                echo ""
+                echo "Recent commits:"
+                git log --oneline -10
+                echo ""
+                read -r -p "Enter commit hash from above (e.g., abc123def): " commit_hash
+            fi
+            
+            if [[ -n "$commit_hash" ]]; then
+                git revert "$commit_hash"
+                echo "✅ Revert completed for commit: $commit_hash"
+            else
+                echo "❌ No commit hash provided"
+            fi
+            ;;
+        3)
+            echo "💾 Stashing changes"
+            echo "Example messages: 'WIP: feature-x', 'bugfix: login issue'"
+            read -r -p "Stash message (optional): " stash_message
+            if [[ -n "$stash_message" ]]; then
+                git stash push -m "$stash_message"
+            else
+                git stash
+            fi
+            echo "✅ Changes stashed"
+            ;;
+        4)
+            echo "📤 Popping stash"
+            git stash list
+            echo ""
+            read -r -p "Enter stash index (0 for latest, or leave empty for latest): " stash_index
+            if [[ -n "$stash_index" ]]; then
+                git stash pop "stash@{$stash_index}"
+            else
+                git stash pop
+            fi
+            echo "✅ Stash popped"
+            ;;
+        5)
+            echo "📜 Recent commits:"
+            git log --oneline -20
+            ;;
+        6)
+            echo "🔍 View and choose commit to revert"
+            echo "Recent commits:"
+            git log --oneline -15 --graph --decorate
+            
+            echo ""
+            echo "Example: Enter 'abc123def' or 'HEAD~3' or 'main~2'"
+            read -r -p "Commit hash/ref (e.g., abc123def, HEAD~1, main~2): " commit_ref
+            
+            if [[ -n "$commit_ref" ]]; then
+                echo ""
+                echo "Commit details:"
+                git show --stat "$commit_ref"
+                echo ""
+                
+                read -r -p "Revert this commit? (yes/no): " confirm
+                if [[ "$confirm" == "yes" || "$confirm" == "y" ]]; then
+                    git revert "$commit_ref"
+                    echo "✅ Revert completed for: $commit_ref"
+                else
+                    echo "Operation cancelled"
+                fi
+            else
+                echo "❌ No commit reference provided"
+            fi
+            ;;
+        7)
+            echo "📋 Stash list:"
+            git stash list
+            ;;
+        8)
+            echo "🗑️  Clearing stash"
+            git stash list
+            echo ""
+            echo "⚠️  WARNING: This will clear ALL stashed changes!"
+            read -r -p "Are you sure? (yes/no): " confirm
+            if [[ "$confirm" == "yes" || "$confirm" == "y" ]]; then
+                git stash clear
+                echo "✅ Stash cleared"
+            else
+                echo "Operation cancelled"
+            fi
+            ;;
+        q|Q)
+            echo "Exiting..."
+            ;;
+        *)
+            echo "❌ Invalid choice"
+            ;;
+    esac
+}
+
+
+echo ""
+: <<'NOTE_BLOCK'
+
+
+NOTE_BLOCK
+echo ""	
+
+echo ""
+: <<'NOTE_BLOCK'
+
+# Use the full menu
+git_undo_operations
+
+# Just browse and revert
+git_choose_and_revert
+
+# View commits with numbers and copy hash
+git_view_and_pick
+git_view_and_pick 20  # Show 20 commits
+
+# Quick shortcuts
+gshow           # Show 10 recent commits
+gshow 20        # Show 20 recent commits
+grevert         # Browse and revert
+grevert abc123  # Revert specific commit
+gpick           # Browse and copy hash (15 commits)
+gpick 25        # Browse and copy hash (25 commits)
+
+NOTE_BLOCK
+echo ""	
+
+function git_choose_and_revert() {
+    echo "📜 Recent commits (last 15):"
+    echo "=============================="
+    git log --oneline -15 --graph --decorate --color=always
+    
+    echo ""
+    echo "📝 How to choose:"
+    echo "   • Enter full hash: abc123def"
+    echo "   • Enter short hash: abc123 (first 6 chars)"
+    echo "   • Enter HEAD~2 (2 commits back from HEAD)"
+    echo "   • Enter main~3 (3 commits back from main)"
+    echo "   • Enter tag-name~1 (1 commit back from tag)"
+    echo ""
+    
+    read -r -p "Enter commit reference to revert (or 'q' to quit): " commit_ref
+    
+    if [[ "$commit_ref" == "q" || "$commit_ref" == "Q" ]]; then
+        echo "Operation cancelled"
+        return
+    fi
+    
+    if [[ -z "$commit_ref" ]]; then
+        echo "❌ No commit reference provided"
+        return
+    fi
+    
+    echo ""
+    echo "🔍 Selected commit details:"
+    echo "=============================="
+    git show --stat --oneline "$commit_ref" 2>/dev/null
+    
+    if [[ $? -ne 0 ]]; then
+        echo "❌ Invalid commit reference: $commit_ref"
+        return
+    fi
+    
+    echo ""
+    echo "⚠️  This will create a new commit that undoes the selected commit"
+    read -r -p "Continue with revert? (yes/no): " confirm
+    
+    if [[ "$confirm" == "yes" || "$confirm" == "y" ]]; then
+        git revert "$commit_ref"
+        echo "✅ Revert completed for: $commit_ref"
+    else
+        echo "Operation cancelled"
+    fi
+}
+
+# Quick commit viewer with selection
+function git_view_and_pick() {
+    local num_commits=${1:-10}
+    
+    echo "📜 Recent commits (last $num_commits):"
+    echo "======================================"
+    
+    # Store commits in array
+    mapfile -t commits < <(git log --oneline -"$num_commits" --color=always)
+    
+    # Display with numbers
+    for i in "${!commits[@]}"; do
+        printf "[%2d] %s\n" "$i" "${commits[$i]}"
+    done
+    
+    echo ""
+    read -r -p "Enter number to copy hash (0-$((num_commits-1))) or 'q' to quit: " choice
+    
+    if [[ "$choice" == "q" || "$choice" == "Q" ]]; then
+        return
+    fi
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -lt "$num_commits" ]]; then
+        # Extract hash (first 7 characters)
+        hash=$(echo "${commits[$choice]}" | awk '{print $1}')
+        echo ""
+        echo "✅ Copied hash: $hash"
+        echo "Use: git revert $hash"
+        echo "Or:  git show $hash"
+        
+        # Copy to clipboard if available
+        if command -v pbcopy &>/dev/null; then
+            echo -n "$hash" | pbcopy
+            echo "📋 Hash copied to clipboard (macOS)"
+        elif command -v xclip &>/dev/null; then
+            echo -n "$hash" | xclip -selection clipboard
+            echo "📋 Hash copied to clipboard (Linux)"
+        elif command -v clip &>/dev/null; then
+            echo -n "$hash" | clip
+            echo "📋 Hash copied to clipboard (Windows)"
+        fi
+    else
+        echo "❌ Invalid selection"
+    fi
+}
+
+# Simple one-liner functions
+function gshow() {
+    # Show recent commits
+    git log --oneline -"${1:-10}" --graph --decorate --color=always
+}
+
+function grevert() {
+    # Revert with commit browser
+    if [[ -n "$1" ]]; then
+        git revert "$1"
+    else
+        git_choose_and_revert
+    fi
+}
+
+function gpick() {
+    # Browse and pick commit
+    git_view_and_pick "${1:-15}"
+}
 
 function fetch_and_check_diff(){
 	# Fetch the latest changes
