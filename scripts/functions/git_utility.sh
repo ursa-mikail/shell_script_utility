@@ -24,6 +24,561 @@ function get_commits_in_range() {
     done
 }
 
+function gdel() {
+    if [[ -z "$1" ]]; then
+        echo "Available branches:"
+        git branch
+        echo ""
+        read -r -p "Branch to delete: " branch
+    else
+        branch="$1"
+    fi
+    
+    if [[ -z "$branch" ]]; then
+        echo "❌ No branch specified"
+        return
+    fi
+    
+    echo "🗑️  Deleting: $branch"
+    
+    # Delete local
+    git branch -D "$branch"
+    
+    # Delete remote
+    git push origin --delete "$branch" 2>/dev/null
+    
+    echo "✅ Done"
+}
+
+
+function git_feature_workflow() {
+    echo "🚀 Git Feature Development Workflow"
+    echo "==================================="
+    echo "1) Start new feature (from main)"
+    echo "2) Make changes & commit"
+    echo "3) Push to remote"
+    echo "4) Update with latest main"
+    echo "5) Check PR status"
+    echo "6) Clean up after merge"
+    echo "7) Quick workflow (auto)"
+    echo "8) View current status"
+    echo "q) Quit"
+    echo ""
+    
+    read -r -p "Choice (1-8 or q): " choice
+    
+    case $choice in
+        1)
+            echo "📦 Pull latest changes"
+            echo "======================"
+            echo "Current branch: $(git branch --show-current)"
+            echo ""
+            
+            # Check if we should start from main
+            current_branch=$(git branch --show-current)
+            if [[ "$current_branch" != "main" ]] && [[ "$current_branch" != "master" ]]; then
+                echo "⚠️  You're not on main/master. Options:"
+                echo "1) Switch to main and pull"
+                echo "2) Stay on current branch"
+                echo "3) Cancel"
+                read -r -p "Choice (1-3): " switch_choice
+                
+                case $switch_choice in
+                    1)
+                        git checkout main 2>/dev/null || git checkout master 2>/dev/null
+                        if [[ $? -ne 0 ]]; then
+                            echo "❌ Could not switch to main/master"
+                            return
+                        fi
+                        ;;
+                    2)
+                        echo "✅ Staying on $current_branch"
+                        ;;
+                    *)
+                        echo "❌ Cancelled"
+                        return
+                        ;;
+                esac
+            fi
+            
+            # Pull latest
+            echo ""
+            echo "🔄 Pulling latest changes..."
+            git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || git pull
+            
+            # Create feature branch
+            echo ""
+            echo "🆕 Create feature branch"
+            echo "========================"
+            echo "Branch naming examples:"
+            echo "  • feature/login-page"
+            echo "  • bugfix/header-issue"
+            echo "  • hotfix/prod-bug"
+            echo "  • chore/update-deps"
+            echo ""
+            read -r -p "Feature branch name: " feature_name
+            
+            if [[ -z "$feature_name" ]]; then
+                echo "❌ No branch name provided"
+                return
+            fi
+            
+            # Create and switch to new branch
+            git checkout -b "$feature_name"
+            echo ""
+            echo "✅ Created and switched to: $feature_name"
+            echo ""
+            echo "📋 Next steps:"
+            echo "  1. Make your changes"
+            echo "  2. Run: git add ."
+            echo "  3. Run: git commit -m 'clear message'"
+            echo "  4. Run this workflow again and choose option 3"
+            ;;
+        2)
+            echo "✏️  Make changes & commit"
+            echo "========================"
+            current_branch=$(git branch --show-current)
+            echo "Current branch: $current_branch"
+            echo ""
+            
+            # Check if we're on a feature branch
+            if [[ "$current_branch" == "main" ]] || [[ "$current_branch" == "master" ]]; then
+                echo "⚠️  You're on main/master. Create a feature branch first!"
+                read -r -p "Create feature branch now? (yes/no): " create_now
+                if [[ "$create_now" == "yes" || "$create_now" == "y" ]]; then
+                    # Jump to step 1
+                    echo ""
+                    echo "📦 First, let's create a feature branch..."
+                    read -r -p "Feature branch name: " feature_name
+                    [[ -n "$feature_name" ]] && git checkout -b "$feature_name"
+                else
+                    return
+                fi
+            fi
+            
+            # Show current status
+            echo ""
+            echo "📊 Current status:"
+            git status -sb
+            
+            echo ""
+            echo "Options:"
+            echo "1) Add all changes"
+            echo "2) Add specific files"
+            echo "3) View changes before adding"
+            echo "4) Commit with message"
+            echo "5) Quick commit (add all + commit)"
+            
+            read -r -p "Choice (1-5): " commit_choice
+            
+            case $commit_choice in
+                1)
+                    echo "📦 Adding all changes..."
+                    git add .
+                    git status -sb
+                    ;;
+                2)
+                    echo "Changed files:"
+                    git status --short
+                    echo ""
+                    echo "Enter file paths (space-separated) or patterns:"
+                    echo "Example: src/app.js styles/*.css"
+                    read -r -p "Files to add: " files_to_add
+                    if [[ -n "$files_to_add" ]]; then
+                        git add $files_to_add
+                        git status -sb
+                    fi
+                    ;;
+                3)
+                    echo "🔍 Changes to be added:"
+                    git diff --cached --color=always
+                    echo ""
+                    echo "📄 Unstaged changes:"
+                    git diff --color=always
+                    ;;
+                4)
+                    echo "💾 Commit changes"
+                    echo "Commit message examples:"
+                    echo "  • feat: add user login"
+                    echo "  • fix: resolve header overflow"
+                    echo "  • docs: update README"
+                    echo "  • chore: update dependencies"
+                    echo ""
+                    read -r -p "Commit message: " commit_msg
+                    if [[ -n "$commit_msg" ]]; then
+                        git commit -m "$commit_msg"
+                        echo ""
+                        echo "📜 Recent commits:"
+                        git log --oneline -n 3
+                    fi
+                    ;;
+                5)
+                    echo "⚡ Quick commit"
+                    read -r -p "Commit message: " commit_msg
+                    if [[ -n "$commit_msg" ]]; then
+                        git add .
+                        git commit -m "$commit_msg"
+                        echo "✅ Committed: $commit_msg"
+                    fi
+                    ;;
+                *)
+                    echo "❌ Invalid choice"
+                    ;;
+            esac
+            
+            echo ""
+            echo "📋 Next: Push your changes with option 3"
+            ;;
+        3)
+            echo "🚀 Push to remote"
+            echo "================="
+            current_branch=$(git branch --show-current)
+            echo "Current branch: $current_branch"
+            echo ""
+            
+            # Check if we're on main/master
+            if [[ "$current_branch" == "main" ]] || [[ "$current_branch" == "master" ]]; then
+                echo "⚠️  WARNING: You're on $current_branch!"
+                echo "Are you sure you want to push directly?"
+                read -r -p "Push to $current_branch? (yes/no): " confirm
+                if [[ "$confirm" != "yes" ]] && [[ "$confirm" != "y" ]]; then
+                    echo "❌ Push cancelled"
+                    return
+                fi
+            fi
+            
+            # Check for unpushed commits
+            echo "📜 Unpushed commits:"
+            git log --oneline origin/main..HEAD 2>/dev/null || git log --oneline origin/master..HEAD 2>/dev/null || git log --oneline @{upstream}..HEAD 2>/dev/null || echo "  (Could not determine upstream)"
+            
+            echo ""
+            echo "Options:"
+            echo "1) Push to origin (set upstream)"
+            echo "2) Push without setting upstream"
+            echo "3) Force push (careful!)"
+            echo "4) View remote URL"
+            
+            read -r -p "Choice (1-4): " push_choice
+            
+            case $push_choice in
+                1)
+                    echo "🔄 Pushing to origin/$current_branch..."
+                    git push -u origin "$current_branch"
+                    echo ""
+                    echo "✅ Pushed! Next steps:"
+                    echo "   • Open a Pull Request on GitHub/GitLab"
+                    echo "   • Share the PR link with reviewers"
+                    echo "   • Wait for approval"
+                    ;;
+                2)
+                    git push origin "$current_branch"
+                    ;;
+                3)
+                    echo "⚠️  Force push will overwrite remote history!"
+                    read -r -p "Are you sure? (yes/no): " confirm
+                    if [[ "$confirm" == "yes" || "$confirm" == "y" ]]; then
+                        git push --force-with-lease origin "$current_branch"
+                    fi
+                    ;;
+                4)
+                    git remote -v
+                    ;;
+                *)
+                    git push -u origin "$current_branch"
+                    ;;
+            esac
+            ;;
+        4)
+            echo "🔄 Update with latest main"
+            echo "=========================="
+            current_branch=$(git branch --show-current)
+            echo "Current branch: $current_branch"
+            
+            if [[ "$current_branch" == "main" ]] || [[ "$current_branch" == "master" ]]; then
+                echo "You're already on main/master. Just pull:"
+                git pull
+                return
+            fi
+            
+            echo ""
+            echo "Options to update your branch:"
+            echo "1) Merge main into feature (safe)"
+            echo "2) Rebase feature onto main (clean history)"
+            echo "3) Just check what's new in main"
+            
+            read -r -p "Choice (1-3): " update_choice
+            
+            # Stash any uncommitted changes first
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+                echo "📦 You have uncommitted changes."
+                read -r -p "Stash them first? (yes/no): " stash_choice
+                if [[ "$stash_choice" == "yes" || "$stash_choice" == "y" ]]; then
+                    git stash
+                    echo "✅ Changes stashed"
+                fi
+            fi
+            
+            case $update_choice in
+                1)
+                    echo "🔄 Merging main into $current_branch..."
+                    git fetch origin
+                    git merge origin/main 2>/dev/null || git merge origin/master 2>/dev/null || git merge main 2>/dev/null || git merge master 2>/dev/null
+                    echo "✅ Merge completed"
+                    ;;
+                2)
+                    echo "🎯 Rebasing $current_branch onto main..."
+                    git fetch origin
+                    git rebase origin/main 2>/dev/null || git rebase origin/master 2>/dev/null || git rebase main 2>/dev/null || git rebase master 2>/dev/null
+                    echo "✅ Rebase completed"
+                    ;;
+                3)
+                    echo "🔍 What's new in main since you branched:"
+                    git fetch origin
+                    git log --oneline "$current_branch"..origin/main 2>/dev/null || git log --oneline "$current_branch"..origin/master 2>/dev/null || git log --oneline "$current_branch"..main 2>/dev/null
+                    ;;
+                *)
+                    echo "❌ Invalid choice"
+                    ;;
+            esac
+            
+            # Pop stash if we stashed earlier
+            if [[ "$stash_choice" == "yes" || "$stash_choice" == "y" ]]; then
+                echo ""
+                read -r -p "Pop stashed changes back? (yes/no): " pop_choice
+                if [[ "$pop_choice" == "yes" || "$pop_choice" == "y" ]]; then
+                    git stash pop
+                fi
+            fi
+            ;;
+        5)
+            echo "📋 Check PR status"
+            echo "=================="
+            current_branch=$(git branch --show-current)
+            echo "Current branch: $current_branch"
+            echo ""
+            
+            # Check if branch is pushed
+            if ! git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
+                echo "❌ Branch not pushed to remote yet."
+                echo "Push first with option 3."
+                return
+            fi
+            
+            echo "📊 Branch status:"
+            ahead=$(git rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo "0")
+            behind=$(git rev-list --count 'HEAD..@{upstream}' 2>/dev/null || echo "0")
+            echo "  Ahead of remote: $ahead commit(s)"
+            echo "  Behind remote: $behind commit(s)"
+            
+            echo ""
+            echo "🔍 Compare with main:"
+            git log --oneline origin/main.."$current_branch" 2>/dev/null || git log --oneline main.."$current_branch" 2>/dev/null || echo "  Could not compare with main"
+            
+            echo ""
+            echo "📋 Next steps for your PR:"
+            echo "  1. Make sure all tests pass"
+            echo "  2. Update your branch with main (option 4)"
+            echo "  3. Push any updates (option 3)"
+            echo "  4. Request reviews from teammates"
+            echo "  5. Address review comments"
+            ;;
+        6)
+            echo "🧹 Clean up after merge"
+            echo "======================"
+            current_branch=$(git branch --show-current)
+            echo "Current branch: $current_branch"
+            echo ""
+            
+            echo "Assumptions:"
+            echo "• Your PR has been merged into main"
+            echo "• You want to clean up the feature branch"
+            echo ""
+            
+            # Switch to main first
+            echo "1. Switching to main..."
+            git checkout main 2>/dev/null || git checkout master 2>/dev/null
+            if [[ $? -ne 0 ]]; then
+                echo "❌ Could not switch to main/master"
+                return
+            fi
+            
+            # Pull latest
+            echo "2. Pulling latest changes..."
+            git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || git pull
+            
+            # Delete local branch
+            echo ""
+            echo "3. Delete feature branch"
+            echo "Available branches:"
+            git branch --list | grep -v "^\*" | grep -E "feature/|bugfix/|hotfix/" | head -10
+            
+            read -r -p "Branch to delete (leave empty for $current_branch): " branch_to_delete
+            branch_to_delete=${branch_to_delete:-$current_branch}
+            
+            if [[ "$branch_to_delete" == "main" ]] || [[ "$branch_to_delete" == "master" ]]; then
+                echo "❌ Cannot delete main/master!"
+                return
+            fi
+            
+            echo ""
+            read -r -p "Delete local branch '$branch_to_delete'? (yes/no): " confirm_local
+            if [[ "$confirm_local" == "yes" || "$confirm_local" == "y" ]]; then
+                git branch -d "$branch_to_delete" 2>/dev/null
+                if [[ $? -ne 0 ]]; then
+                    read -r -p "Branch not fully merged. Force delete? (yes/no): " confirm_force
+                    if [[ "$confirm_force" == "yes" || "$confirm_force" == "y" ]]; then
+                        git branch -D "$branch_to_delete"
+                    fi
+                fi
+            fi
+            
+            # Delete remote branch
+            echo ""
+            read -r -p "Delete remote branch 'origin/$branch_to_delete'? (yes/no): " confirm_remote
+            if [[ "$confirm_remote" == "yes" || "$confirm_remote" == "y" ]]; then
+                git push origin --delete "$branch_to_delete" 2>/dev/null
+                if [[ $? -eq 0 ]]; then
+                    echo "✅ Deleted remote branch"
+                else
+                    echo "⚠️  Could not delete remote branch (may already be deleted)"
+                fi
+            fi
+            
+            echo ""
+            echo "✅ Cleanup complete!"
+            echo "Ready for next feature:"
+            echo "  1. Run option 1 to start new feature"
+            echo "  2. Or: git checkout -b feature/your-next-thing"
+            ;;
+        7)
+            echo "⚡ Quick workflow (auto)"
+            echo "========================"
+            echo "This will guide you through the complete workflow."
+            echo ""
+            
+            # Step 1: Ensure we're on main and pull
+            echo "1. 📦 Updating main..."
+            current_branch=$(git branch --show-current)
+            if [[ "$current_branch" != "main" ]] && [[ "$current_branch" != "master" ]]; then
+                read -r -p "Switch to main? (yes/no): " switch_main
+                if [[ "$switch_main" == "yes" || "$switch_main" == "y" ]]; then
+                    git checkout main 2>/dev/null || git checkout master 2>/dev/null
+                fi
+            fi
+            
+            git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || git pull
+            
+            # Step 2: Create feature branch
+            echo ""
+            echo "2. 🆕 Creating feature branch..."
+            read -r -p "Feature branch name (e.g., feature/login): " feature_name
+            if [[ -z "$feature_name" ]]; then
+                echo "❌ Need a branch name"
+                return
+            fi
+            
+            git checkout -b "$feature_name"
+            echo "✅ Created: $feature_name"
+            
+            # Step 3: Make changes reminder
+            echo ""
+            echo "3. ✏️  Make your changes now..."
+            echo "   Edit files, add features, fix bugs"
+            echo ""
+            read -r -p "Press Enter when ready to commit..."
+            
+            # Step 4: Commit
+            echo ""
+            echo "4. 💾 Committing changes..."
+            git status -sb
+            echo ""
+            read -r -p "Commit message: " commit_msg
+            if [[ -n "$commit_msg" ]]; then
+                git add .
+                git commit -m "$commit_msg"
+            else
+                echo "⚠️  No commit message, using default"
+                git add .
+                git commit -m "feat: initial commit for $feature_name"
+            fi
+            
+            # Step 5: Push
+            echo ""
+            echo "5. 🚀 Pushing to remote..."
+            git push -u origin "$feature_name"
+            
+            # Step 6: Show next steps
+            echo ""
+            echo "🎉 Workflow complete! Next steps:"
+            echo "================================="
+            echo "1. Open a Pull Request:"
+            echo "   • GitHub: https://github.com/your-repo/compare/$feature_name"
+            echo "   • GitLab: Check merge requests page"
+            echo ""
+            echo "2. Share PR link with reviewers"
+            echo ""
+            echo "3. After approval and merge:"
+            echo "   • Run option 6 to clean up"
+            echo "   • Or: git checkout main && git pull && git branch -d $feature_name"
+            ;;
+        8)
+            echo "📊 View current status"
+            echo "======================"
+            current_branch=$(git branch --show-current)
+            echo "📍 Current branch: $current_branch"
+            echo ""
+            
+            # Check if feature branch
+            if [[ "$current_branch" == "main" ]] || [[ "$current_branch" == "master" ]]; then
+                echo "📦 You're on the main branch."
+                echo "   Run option 1 to start a new feature."
+            else
+                echo "🌿 Feature branch: $current_branch"
+                
+                # Check upstream
+                if git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
+                    upstream=$(git rev-parse --abbrev-ref '@{upstream}')
+                    echo "📡 Upstream: $upstream"
+                    
+                    ahead=$(git rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo "0")
+                    behind=$(git rev-list --count 'HEAD..@{upstream}' 2>/dev/null || echo "0")
+                    echo "   Ahead: $ahead, Behind: $behind"
+                else
+                    echo "⚠️  No upstream set. Push with option 3."
+                fi
+            fi
+            
+            echo ""
+            echo "📦 Working directory status:"
+            git status -sb
+            
+            echo ""
+            echo "📜 Recent commits (current branch):"
+            git log --oneline -n 3 --color=always
+            
+            echo ""
+            echo "🔍 Where are you in the workflow?"
+            if [[ "$current_branch" == "main" ]] || [[ "$current_branch" == "master" ]]; then
+                echo "✅ Ready to start: Run option 1"
+            elif ! git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
+                echo "⏳ Step 2/6: Branch created, needs push (option 3)"
+            elif [[ $(git status --short | wc -l) -gt 0 ]]; then
+                echo "⏳ Step 2/6: Has uncommitted changes (option 2)"
+            else
+                echo "⏳ Step 3/6: Ready to push or update (options 3-4)"
+            fi
+            ;;
+        q|Q)
+            echo "Exiting..."
+            ;;
+        *)
+            echo "❌ Invalid choice"
+            ;;
+    esac
+}
+
+
+
 function git_undo_operations() {
     echo "📦 Git Undo Operations"
     echo "======================="
