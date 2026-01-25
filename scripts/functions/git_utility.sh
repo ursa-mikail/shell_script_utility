@@ -3066,4 +3066,191 @@ git_authors() {
   git shortlog -sne "$RANGE"
 }
 
+echo ""
+: <<'NOTE_BLOCK'
+
+# Full interactive menu
+git_fix_mistakes
+
+# Quick commands
+gmove feature/correct-branch  # Move last commit
+gundo                         # Undo last commit
+gfixmsg "new message"         # Fix commit message
+gunstage                      # Unstage all
+gdiscard                      # Discard changes
+gpanic                        # Emergency reset
+
+# Common scenarios:
+
+# 1. Committed to wrong branch:
+#    gmove correct-branch
+
+# 2. Need to undo last commit:
+#    gundo (choose option 1 for --soft)
+
+# 3. Pushed something wrong:
+#    git revert HEAD
+#    git push
+
+# 4. Wrong commit message:
+#    gfixmsg "new message"
+
+# 5. Staged wrong files:
+#    gunstage
+
+# 6. General panic:
+#    git_fix_mistakes (choose option 6)
+
+NOTE_BLOCK
+echo ""	
+
+# Quick fix: Move last commit to another branch
+function gmove() {
+    if [[ -n "$1" ]]; then
+        target_branch="$1"
+    else
+        echo "Available branches:"
+        git branch --list | grep -v "^\*"
+        echo ""
+        read "target_branch?Move last commit to branch: "
+    fi
+    
+    if [[ -n "$target_branch" ]]; then
+        echo "🔄 Moving last commit to $target_branch..."
+        git reset --soft HEAD~1
+        git stash
+        git checkout "$target_branch"
+        git stash pop
+        git commit -m "$(git log --format=%B -n 1 ORIG_HEAD 2>/dev/null || echo "fix: moved commit")"
+        echo "✅ Done"
+    fi
+}
+
+# Quick undo last commit
+function gundo() {
+    echo "📜 Last commit:"
+    git log --oneline -n 1
+    echo ""
+    echo "Options:"
+    echo "1) Undo but keep changes (--soft)"
+    echo "2) Undo and unstage changes (--mixed)"
+    echo "3) Undo and delete changes (--hard)"
+    read "choice?Choice (1-3): "
+    
+    case $choice in
+        1) git reset --soft HEAD~1 ;;
+        2) git reset HEAD~1 ;;
+        3) 
+            echo "⚠️  This will DELETE changes!"
+            read "confirm?Sure? (yes/no): "
+            [[ "$confirm" == "yes" ]] && git reset --hard HEAD~1
+            ;;
+    esac
+}
+
+# Fix wrong commit message
+function gfixmsg() {
+    if [[ -n "$1" ]]; then
+        git commit --amend -m "$1"
+    else
+        git commit --amend
+    fi
+}
+
+# Unstage everything
+function gunstage() {
+    git reset
+    echo "✅ All files unstaged"
+}
+
+# Discard all changes
+function gdiscard() {
+    echo "🗑️  Discard all uncommitted changes?"
+    read "confirm?This cannot be undone! (yes/no): "
+    if [[ "$confirm" == "yes" ]]; then
+        git checkout -- .
+        echo "✅ All changes discarded"
+    fi
+}
+
+# Emergency reset
+function gpanic() {
+    echo "🚨 EMERGENCY RESET"
+    echo "This will:"
+    echo "1. Reset to last commit (--hard)"
+    echo "2. Clean untracked files (-fd)"
+    echo ""
+    read "confirm?TYPE 'RESET' to continue: "
+    
+    if [[ "$confirm" == "RESET" ]]; then
+        git reset --hard HEAD
+        git clean -fd
+        echo "✅ System reset complete"
+    else
+        echo "❌ Cancelled"
+    fi
+}
+
+# Help for common fixes
+function gfix-help() {
+    echo "🛠️  Git Fix Commands:"
+    echo "===================="
+    echo "git_fix_mistakes - Full menu for fixing mistakes"
+    echo ""
+    echo "gmove <branch>    - Move last commit to another branch"
+    echo "gundo             - Undo last commit (interactive)"
+    echo "gfixmsg           - Fix last commit message"
+    echo "gunstage          - Unstage all files"
+    echo "gdiscard          - Discard all uncommitted changes"
+    echo "gpanic            - Emergency reset (nuclear option)"
+    echo "gfix-help         - Show this help"
+}
+
+# Nuclear reset - start fresh from remote
+function git_fresh_start() {
+    echo "💣 NUCLEAR OPTION: Start fresh from remote"
+    echo "========================================="
+    echo "This will:"
+    echo "1. Fetch latest from remote"
+    echo "2. Reset to match origin/main exactly"
+    echo "3. DELETE all local changes (unstaged and staged)"
+    echo ""
+    echo "⚠️  WARNING: This cannot be undone!"
+    echo "All uncommitted work will be lost forever."
+    echo ""
+    
+    read "confirm?Type 'YES' to continue: "
+    
+    if [[ "$confirm" != "YES" ]]; then
+        echo "❌ Cancelled"
+        return
+    fi
+    
+    echo ""
+    echo "💥 Detonating..."
+    
+    # Fetch latest
+    echo "🔄 Fetching from remote..."
+    git fetch origin
+    
+    # Reset to origin/main (or origin/master)
+    echo "🔄 Resetting to remote state..."
+    if git rev-parse --verify origin/main >/dev/null 2>&1; then
+        git reset --hard origin/main
+    elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+        git reset --hard origin/master
+    else
+        echo "❌ Could not find origin/main or origin/master"
+        return
+    fi
+    
+    # Clean untracked files
+    echo "🗑️  Cleaning untracked files..."
+    git clean -fd
+    
+    echo ""
+    echo "✅ Fresh start complete!"
+    echo "You're now exactly matching the remote repository."
+}
+
 
