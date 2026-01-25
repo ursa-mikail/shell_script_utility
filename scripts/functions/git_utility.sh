@@ -65,7 +65,7 @@ function git_feature_workflow() {
     echo "q) Quit"
     echo ""
     
-    read -r -p "Choice (1-8 or q): " choice
+    read "choice?Choice (1-8 or q): "
     
     case $choice in
         1)
@@ -81,7 +81,7 @@ function git_feature_workflow() {
                 echo "1) Switch to main and pull"
                 echo "2) Stay on current branch"
                 echo "3) Cancel"
-                read -r -p "Choice (1-3): " switch_choice
+                read "switch_choice?Choice (1-3): "
                 
                 case $switch_choice in
                     1)
@@ -116,7 +116,7 @@ function git_feature_workflow() {
             echo "  • hotfix/prod-bug"
             echo "  • chore/update-deps"
             echo ""
-            read -r -p "Feature branch name: " feature_name
+            read "feature_name?Feature branch name: "
             
             if [[ -z "$feature_name" ]]; then
                 echo "❌ No branch name provided"
@@ -144,12 +144,12 @@ function git_feature_workflow() {
             # Check if we're on a feature branch
             if [[ "$current_branch" == "main" ]] || [[ "$current_branch" == "master" ]]; then
                 echo "⚠️  You're on main/master. Create a feature branch first!"
-                read -r -p "Create feature branch now? (yes/no): " create_now
+                read "create_now?Create feature branch now? (yes/no): "
                 if [[ "$create_now" == "yes" || "$create_now" == "y" ]]; then
                     # Jump to step 1
                     echo ""
                     echo "📦 First, let's create a feature branch..."
-                    read -r -p "Feature branch name: " feature_name
+                    read "feature_name?Feature branch name: "
                     [[ -n "$feature_name" ]] && git checkout -b "$feature_name"
                 else
                     return
@@ -169,7 +169,7 @@ function git_feature_workflow() {
             echo "4) Commit with message"
             echo "5) Quick commit (add all + commit)"
             
-            read -r -p "Choice (1-5): " commit_choice
+            read "commit_choice?Choice (1-5): "
             
             case $commit_choice in
                 1)
@@ -183,7 +183,7 @@ function git_feature_workflow() {
                     echo ""
                     echo "Enter file paths (space-separated) or patterns:"
                     echo "Example: src/app.js styles/*.css"
-                    read -r -p "Files to add: " files_to_add
+                    read "files_to_add?Files to add: "
                     if [[ -n "$files_to_add" ]]; then
                         git add $files_to_add
                         git status -sb
@@ -204,7 +204,7 @@ function git_feature_workflow() {
                     echo "  • docs: update README"
                     echo "  • chore: update dependencies"
                     echo ""
-                    read -r -p "Commit message: " commit_msg
+                    read "commit_msg?Commit message: "
                     if [[ -n "$commit_msg" ]]; then
                         git commit -m "$commit_msg"
                         echo ""
@@ -214,7 +214,7 @@ function git_feature_workflow() {
                     ;;
                 5)
                     echo "⚡ Quick commit"
-                    read -r -p "Commit message: " commit_msg
+                    read "commit_msg?Commit message: "
                     if [[ -n "$commit_msg" ]]; then
                         git add .
                         git commit -m "$commit_msg"
@@ -240,7 +240,7 @@ function git_feature_workflow() {
             if [[ "$current_branch" == "main" ]] || [[ "$current_branch" == "master" ]]; then
                 echo "⚠️  WARNING: You're on $current_branch!"
                 echo "Are you sure you want to push directly?"
-                read -r -p "Push to $current_branch? (yes/no): " confirm
+                read "confirm?Push to $current_branch? (yes/no): "
                 if [[ "$confirm" != "yes" ]] && [[ "$confirm" != "y" ]]; then
                     echo "❌ Push cancelled"
                     return
@@ -258,7 +258,7 @@ function git_feature_workflow() {
             echo "3) Force push (careful!)"
             echo "4) View remote URL"
             
-            read -r -p "Choice (1-4): " push_choice
+            read "push_choice?Choice (1-4): "
             
             case $push_choice in
                 1)
@@ -275,7 +275,7 @@ function git_feature_workflow() {
                     ;;
                 3)
                     echo "⚠️  Force push will overwrite remote history!"
-                    read -r -p "Are you sure? (yes/no): " confirm
+                    read "confirm?Are you sure? (yes/no): "
                     if [[ "$confirm" == "yes" || "$confirm" == "y" ]]; then
                         git push --force-with-lease origin "$current_branch"
                     fi
@@ -306,12 +306,12 @@ function git_feature_workflow() {
             echo "2) Rebase feature onto main (clean history)"
             echo "3) Just check what's new in main"
             
-            read -r -p "Choice (1-3): " update_choice
+            read "update_choice?Choice (1-3): "
             
             # Stash any uncommitted changes first
             if ! git diff --quiet || ! git diff --cached --quiet; then
                 echo "📦 You have uncommitted changes."
-                read -r -p "Stash them first? (yes/no): " stash_choice
+                read "stash_choice?Stash them first? (yes/no): "
                 if [[ "$stash_choice" == "yes" || "$stash_choice" == "y" ]]; then
                     git stash
                     echo "✅ Changes stashed"
@@ -344,7 +344,7 @@ function git_feature_workflow() {
             # Pop stash if we stashed earlier
             if [[ "$stash_choice" == "yes" || "$stash_choice" == "y" ]]; then
                 echo ""
-                read -r -p "Pop stashed changes back? (yes/no): " pop_choice
+                read "pop_choice?Pop stashed changes back? (yes/no): "
                 if [[ "$pop_choice" == "yes" || "$pop_choice" == "y" ]]; then
                     git stash pop
                 fi
@@ -412,7 +412,7 @@ function git_feature_workflow() {
             echo "Available branches:"
             git branch --list | grep -v "^\*" | grep -E "feature/|bugfix/|hotfix/" | head -10
             
-            read -r -p "Branch to delete (leave empty for $current_branch): " branch_to_delete
+            read "branch_to_delete?Branch to delete (leave empty for $current_branch): "
             branch_to_delete=${branch_to_delete:-$current_branch}
             
             if [[ "$branch_to_delete" == "main" ]] || [[ "$branch_to_delete" == "master" ]]; then
@@ -421,11 +421,11 @@ function git_feature_workflow() {
             fi
             
             echo ""
-            read -r -p "Delete local branch '$branch_to_delete'? (yes/no): " confirm_local
+            read "confirm_local?Delete local branch '$branch_to_delete'? (yes/no): "
             if [[ "$confirm_local" == "yes" || "$confirm_local" == "y" ]]; then
                 git branch -d "$branch_to_delete" 2>/dev/null
                 if [[ $? -ne 0 ]]; then
-                    read -r -p "Branch not fully merged. Force delete? (yes/no): " confirm_force
+                    read "confirm_force?Branch not fully merged. Force delete? (yes/no): "
                     if [[ "$confirm_force" == "yes" || "$confirm_force" == "y" ]]; then
                         git branch -D "$branch_to_delete"
                     fi
@@ -434,7 +434,7 @@ function git_feature_workflow() {
             
             # Delete remote branch
             echo ""
-            read -r -p "Delete remote branch 'origin/$branch_to_delete'? (yes/no): " confirm_remote
+            read "confirm_remote?Delete remote branch 'origin/$branch_to_delete'? (yes/no): "
             if [[ "$confirm_remote" == "yes" || "$confirm_remote" == "y" ]]; then
                 git push origin --delete "$branch_to_delete" 2>/dev/null
                 if [[ $? -eq 0 ]]; then
@@ -460,7 +460,7 @@ function git_feature_workflow() {
             echo "1. 📦 Updating main..."
             current_branch=$(git branch --show-current)
             if [[ "$current_branch" != "main" ]] && [[ "$current_branch" != "master" ]]; then
-                read -r -p "Switch to main? (yes/no): " switch_main
+                read "switch_main?Switch to main? (yes/no): "
                 if [[ "$switch_main" == "yes" || "$switch_main" == "y" ]]; then
                     git checkout main 2>/dev/null || git checkout master 2>/dev/null
                 fi
@@ -471,7 +471,7 @@ function git_feature_workflow() {
             # Step 2: Create feature branch
             echo ""
             echo "2. 🆕 Creating feature branch..."
-            read -r -p "Feature branch name (e.g., feature/login): " feature_name
+            read "feature_name?Feature branch name (e.g., feature/login): "
             if [[ -z "$feature_name" ]]; then
                 echo "❌ Need a branch name"
                 return
@@ -485,14 +485,14 @@ function git_feature_workflow() {
             echo "3. ✏️  Make your changes now..."
             echo "   Edit files, add features, fix bugs"
             echo ""
-            read -r -p "Press Enter when ready to commit..."
+            read "dummy?Press Enter when ready to commit..."
             
             # Step 4: Commit
             echo ""
             echo "4. 💾 Committing changes..."
             git status -sb
             echo ""
-            read -r -p "Commit message: " commit_msg
+            read "commit_msg?Commit message: "
             if [[ -n "$commit_msg" ]]; then
                 git add .
                 git commit -m "$commit_msg"
