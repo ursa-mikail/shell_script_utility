@@ -13,7 +13,12 @@ echo ""
 echo "< zsh mode >"   
 #ln -s /Applications/Sublime\ Text.app/Contents/SharedSupport/bin/subl /usr/local/bin/subl
 alias jupyter_start="jupyter notebook; open -a '/Applications/Google Chrome.app' http://local:8888/tree;"
+alias hist='history'
+alias mk_folder='create_and_goto_folder'
+alias clean_zsh_history='python3 $HOME"/scripts/functions/clean_zsh_history.py"'
+alias hunt_grep_zsh_history='python3 $HOME"/scripts/functions/hunt_grep_zsh_history.py"'
 
+alias hunt_tailored_grep_zsh_history='python3 $HOME"/scripts/functions/hunt_tailored_grep_zsh_history.py"'
 
 alias emend_config="subl ~/.zshrc"
 alias rlc="source ~/.zshrc; echo '.zshrc file reloaded\n'"

@@ -42,6 +42,8 @@ source $HOME"/scripts/functions/folders_and_files.sh"
 #
 #source $number_of_levels_up"miscellany_tests/test_cases.sh"
 source $HOME"/scripts/functions/git_utility.sh"
+source $HOME"/scripts/functions/log.sh"
+source $HOME"/scripts/functions/get_directory_hash.sh"
 
 # [utilities]
 source $HOME"/scripts/utilities/text_formatter.sh"
@@ -54,6 +56,8 @@ source $HOME"/scripts/utilities/file_filter.sh"
 #source $HOME"/scripts/utilities/main.sh"
 #source $HOME"/scripts/utilities/main_functions.sh"
 source $HOME"/scripts/utilities/yubi.sh"
+
+source $HOME"/scripts/config.sh"
 
 echo ""
 : <<'NOTE_BLOCK_AREA'
