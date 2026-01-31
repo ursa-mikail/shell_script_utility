@@ -1,4 +1,4 @@
-log() {
+log_message() {
     local log_file="${2:-date_time.log}"
     local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
     
@@ -7,6 +7,6 @@ log() {
 }
 
 # Usage
-#log "Script started"                    # Uses default date_time.log
-#log "Processing complete" "custom.log"  # Uses custom.log
-#log "Another message" "/var/log/myapp/app.log"  # Uses full path
+#log_message "Script started"                    # Uses default date_time.log
+#log_message "Processing complete" "custom.log"  # Uses custom.log
+#log_message "Another message" "/var/log/myapp/app.log"  # Uses full path
