@@ -13,6 +13,51 @@ function git_commit_and_push_to_main (){
 	# git push origin <branch_name>
 }
 
+git_login() {
+    # 1. Start agent and add key
+    if [ -z "$SSH_AUTH_SOCK" ] || ! ssh-add -l &>/dev/null; then
+        eval "$(ssh-agent -s)" > /dev/null
+    fi
+
+    local key="${1:-$HOME/.ssh/id_rsa_git}"
+    if [ ! -f "$key" ]; then
+        echo "❌ Key not found: $key"
+        return 1
+    fi
+
+    # macOS: store passphrase in keychain (so you enter it only once)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        ssh-add --apple-use-keychain "$key" 2>/dev/null || ssh-add "$key"
+    else
+        ssh-add "$key"
+    fi
+    echo "✅ Key added: $key"
+
+    # 2. Test GitHub connection
+    echo "🔗 Testing GitHub..."
+    if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+        echo "✅ Authenticated successfully"
+    else
+        echo "❌ Authentication failed"
+        return 1
+    fi
+
+    # 3. Fix remote URL (if inside a Git repo)
+    local remote_url=$(git remote get-url origin 2>/dev/null)
+    if [[ -n "$remote_url" && "$remote_url" == https://github.com/* ]]; then
+        local repo_path=$(echo "$remote_url" | sed -E 's#https://github.com/##; s#\.git$##')
+        local new_url="git@github.com:${repo_path}.git"
+        echo "🔄 Switching remote from HTTPS to SSH..."
+        git remote set-url origin "$new_url"
+        echo "✅ Remote now: $new_url"
+    elif [[ -n "$remote_url" ]]; then
+        echo "✅ Remote already SSH (or non‑GitHub): $remote_url"
+    else
+        echo "ℹ️  No remote 'origin' found (not in a Git repo?)"
+    fi
+
+    echo "🎉 Ready — run 'git push' now."
+}
 
 # % get_commits_in_range "2024-11-01" "2024-11-25"
 function get_commits_in_range() {
