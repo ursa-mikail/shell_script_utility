@@ -132,8 +132,42 @@ echo ""
 # Jump-host aware wrappers (SSH_JUMP is optional, e.g. "m@10.147.17.239")
 # NOTE: sshpass answers only ONE password prompt; if the jump host needs a
 # different password, set up key auth for it (ssh-copy-id) first.
-function _scp() { sshpass -p "$SSH_PASS" scp ${SSH_JUMP:+-J "$SSH_JUMP"} "$@"; }
-function _ssh() { sshpass -p "$SSH_PASS" ssh ${SSH_JUMP:+-J "$SSH_JUMP"} "$@"; }
+#
+# KEY vs PASSWORD:  SSH_AUTH=key | pass | auto (default).
+#   auto = use the key when $SSH_KEY exists, otherwise the password.
+# JUMP HOST + KEY:  "ssh -i KEY -J JUMP HOST" uses KEY only for HOST, never for the
+#   jump hop (which then asks for a password). So with a key the jump hop is given
+#   its own ssh via ProxyCommand, using SSH_JUMP_KEY (default: SSH_KEY).
+function _use_key() {
+  case "${SSH_AUTH:-auto}" in
+    key)  return 0 ;;
+    pass) return 1 ;;
+    *)    [ -n "$SSH_KEY" ] && [ -s "$SSH_KEY" ] ;;
+  esac
+}
+
+# Fills the array _SSH_O with the ssh/scp options for the current login.
+function _ssh_build_opts() {
+  _SSH_O=(-o StrictHostKeyChecking=accept-new)
+  if _use_key; then
+    _SSH_O+=(-i "$SSH_KEY" -o IdentitiesOnly=yes -o PreferredAuthentications=publickey)
+    if [ -n "$SSH_JUMP" ]; then
+      local jk="${SSH_JUMP_KEY:-$SSH_KEY}"
+      _SSH_O+=(-o "ProxyCommand=ssh -i $jk -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -W %h:%p $SSH_JUMP")
+    fi
+  else
+    [ -n "$SSH_JUMP" ] && _SSH_O+=(-J "$SSH_JUMP")
+  fi
+}
+
+function _scp() {
+  _ssh_build_opts
+  if _use_key; then scp "${_SSH_O[@]}" "$@"; else sshpass -p "$SSH_PASS" scp "${_SSH_O[@]}" "$@"; fi
+}
+function _ssh() {
+  _ssh_build_opts
+  if _use_key; then ssh "${_SSH_O[@]}" "$@"; else sshpass -p "$SSH_PASS" ssh "${_SSH_O[@]}" "$@"; fi
+}
 
 # Send a file: local → remote
 function ssh_send_file() {
@@ -515,40 +549,38 @@ echo ""
 # Add these functions to your existing script
 # ============================================================================
 
-# Detect which SSH method to use
+# Detect which SSH method to use (same key/password/jump rules as _ssh and _scp above).
+# These return a command string that callers run with eval. The rsync one cannot use
+# backslash quoting (rsync does not parse it), so the key path must not contain spaces.
 function get_ssh_cmd() {
-    local J=""
-    [ -n "$SSH_JUMP" ] && J="-J $SSH_JUMP "
-    if [ -n "$SSH_PASS" ]; then
-        echo "sshpass -p '$SSH_PASS' ssh ${J}$SSH_HOST"
-    elif [ -n "$SSH_KEY" ]; then
-        echo "ssh -i '$SSH_KEY' ${J}$SSH_HOST"
+    _ssh_build_opts
+    local o; o=$(printf '%q ' "${_SSH_O[@]}")
+    if _use_key; then
+        echo "ssh ${o}$SSH_HOST"
     else
-        echo "ssh ${J}$SSH_HOST"
+        echo "sshpass -p '$SSH_PASS' ssh ${o}$SSH_HOST"
     fi
 }
 
 function get_scp_cmd() {
-    local J=""
-    [ -n "$SSH_JUMP" ] && J=" -J $SSH_JUMP"
-    if [ -n "$SSH_PASS" ]; then
-        echo "sshpass -p '$SSH_PASS' scp${J}"
-    elif [ -n "$SSH_KEY" ]; then
-        echo "scp -i '$SSH_KEY'${J}"
+    _ssh_build_opts
+    local o; o=$(printf '%q ' "${_SSH_O[@]}")
+    if _use_key; then
+        echo "scp ${o}"
     else
-        echo "scp${J}"
+        echo "sshpass -p '$SSH_PASS' scp ${o}"
     fi
 }
 
 function get_rsync_cmd() {
-    local J=""
-    [ -n "$SSH_JUMP" ] && J=" -J $SSH_JUMP"
-    if [ -n "$SSH_PASS" ]; then
-        echo "sshpass -p '$SSH_PASS' rsync -e 'ssh${J}'"
-    elif [ -n "$SSH_KEY" ]; then
-        echo "rsync -e 'ssh -i $SSH_KEY${J}'"
+    local e="ssh -o StrictHostKeyChecking=accept-new"
+    if _use_key; then
+        e="$e -i $SSH_KEY -o IdentitiesOnly=yes -o PreferredAuthentications=publickey"
+        [ -n "$SSH_JUMP" ] && e="$e -o \"ProxyCommand=ssh -i ${SSH_JUMP_KEY:-$SSH_KEY} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -W %h:%p $SSH_JUMP\""
+        echo "rsync -e '$e'"
     else
-        echo "rsync -e 'ssh${J}'"
+        [ -n "$SSH_JUMP" ] && e="$e -J $SSH_JUMP"
+        echo "sshpass -p '$SSH_PASS' rsync -e '$e'"
     fi
 }
 
@@ -990,9 +1022,9 @@ END
 echo ""
 
 function ssh_login_with_pass(){
-    _ssh "$SSH_HOST"
+    SSH_AUTH=pass _ssh "$SSH_HOST"
 }
 
 function ssh_login_with_key(){
-    ssh -i "$SSH_KEY" ${SSH_JUMP:+-J "$SSH_JUMP"} "$SSH_HOST"
+    SSH_AUTH=key _ssh "$SSH_HOST"
 }
