@@ -121,6 +121,7 @@ ssh_get_file /home/m/docs/notes.pdf ~/Downloads/
 
 # Set once: password and host (refer: $HOME"/scripts/config_secrets.sh")
 :'
+export SSH_JUMP="<user_id@jump_ip>"   # optional jump host
 export SSH_HOST="<user_id@ip>"
 export SSH_PASS="<SSH_PASS>"
 export SSH_KEY="$HOME/ssh_keys/jumpbox_key"
@@ -128,18 +129,24 @@ export SSH_KEY="$HOME/ssh_keys/jumpbox_key"
 END
 echo ""
 
+# Jump-host aware wrappers (SSH_JUMP is optional, e.g. "m@10.147.17.239")
+# NOTE: sshpass answers only ONE password prompt; if the jump host needs a
+# different password, set up key auth for it (ssh-copy-id) first.
+function _scp() { sshpass -p "$SSH_PASS" scp ${SSH_JUMP:+-J "$SSH_JUMP"} "$@"; }
+function _ssh() { sshpass -p "$SSH_PASS" ssh ${SSH_JUMP:+-J "$SSH_JUMP"} "$@"; }
+
 # Send a file: local → remote
 function ssh_send_file() {
   local file="$1"
   local remote_path="${2:-/home/m/}"
-  sshpass -p "$SSH_PASS" scp "$file" "$SSH_HOST:$remote_path"
+  _scp "$file" "$SSH_HOST:$remote_path"
 }
 
 # Get a file: remote → local
 function ssh_get_file() {
   local remote_file="$1"
   local local_path="${2:-./}"
-  sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_file" "$local_path"
+  _scp "$SSH_HOST:$remote_file" "$local_path"
 }
 
 echo ""
@@ -167,7 +174,7 @@ function ssh_zip_folder_and_send() {
   fi
 
   zip -r "$zipname" "$folder"
-  sshpass -p "$SSH_PASS" scp "$zipname" "$SSH_HOST:$remote_path"
+  _scp "$zipname" "$SSH_HOST:$remote_path"
   rm "$zipname"
 }
 
@@ -177,7 +184,7 @@ function ssh_get_zip_and_unzip() {
   local local_dir="${2:-./}"
   local zipfile=$(basename "$remote_zip_path")
 
-  sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_zip_path" "$local_dir"
+  _scp "$SSH_HOST:$remote_zip_path" "$local_dir"
   unzip -o "$local_dir/$zipfile" -d "$local_dir"
   rm "$local_dir/$zipfile"
 }
@@ -190,13 +197,13 @@ function ssh_get_folder_and_zip() {
   local remote_zip="/tmp/$zipname"
 
   # Zip folder remotely
-  sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "zip -r '$remote_zip' '$remote_folder'"
+  _ssh "$SSH_HOST" "zip -r '$remote_zip' '$remote_folder'"
 
   # Copy zip file back
-  sshpass -p "$SSH_PASS" scp "$SSH_HOST:$remote_zip" "$local_dest"
+  _scp "$SSH_HOST:$remote_zip" "$local_dest"
 
   # Clean up remote zip
-  sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "rm '$remote_zip'"
+  _ssh "$SSH_HOST" "rm '$remote_zip'"
 
   # Optionally unzip here
   unzip -o "$local_dest/$zipname" -d "$local_dest"
@@ -230,7 +237,7 @@ function ssh_run_and_collect() {
   # Step 1: Zip and send folder
   echo "[$timestamp] Zipping and sending folder..."
   zip -r "$zipname" "$folder" >/dev/null 2>&1
-  if ! sshpass -p "$SSH_PASS" scp "$zipname" "$SSH_HOST:$remote_path"; then
+  if ! _scp "$zipname" "$SSH_HOST:$remote_path"; then
     echo "ERROR: Failed to send zip file"
     rm -f "$zipname"
     return 1
@@ -240,7 +247,7 @@ function ssh_run_and_collect() {
   
   # Step 2: Unzip on remote
   echo "[$timestamp] Unzipping on remote..."
-  if ! sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "cd $remote_path && unzip -o ${zipname} && rm ${zipname}"; then
+  if ! _ssh "$SSH_HOST" "cd $remote_path && unzip -o ${zipname} && rm ${zipname}"; then
     echo "ERROR: Failed to unzip on remote"
     return 1
   fi
@@ -248,14 +255,14 @@ function ssh_run_and_collect() {
   
   # Step 3: Build if Makefile exists
   echo "[$timestamp] Checking for Makefile and building..."
-  sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "cd ${remote_path}${folder} && if [ -f Makefile ]; then make all 2>&1; fi"
+  _ssh "$SSH_HOST" "cd ${remote_path}${folder} && if [ -f Makefile ]; then make all 2>&1; fi"
   
   # Step 4: Run command on remote and capture output
   echo "[$timestamp] Running command: $remote_command"
   local remote_log="/tmp/run_output_$$.log"
   local run_command="cd ${remote_path}${folder} && { $remote_command; } 2>&1 | tee $remote_log"
   
-  if ! sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "$run_command"; then
+  if ! _ssh "$SSH_HOST" "$run_command"; then
     echo "WARNING: Remote command may have failed (non-zero exit code)"
   fi
   
@@ -270,7 +277,7 @@ function ssh_run_and_collect() {
     echo "========================================="
   } >> "$local_log_file"
   
-  if sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "cat $remote_log" >> "$local_log_file" 2>/dev/null; then
+  if _ssh "$SSH_HOST" "cat $remote_log" >> "$local_log_file" 2>/dev/null; then
     echo "[$timestamp] Logs retrieved and appended to $local_log_file"
   else
     echo "WARNING: Could not retrieve remote logs"
@@ -278,7 +285,7 @@ function ssh_run_and_collect() {
   
   # Add separator and cleanup remote log
   echo -e "\n========================================\n" >> "$local_log_file"
-  sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "rm -f $remote_log" 2>/dev/null
+  _ssh "$SSH_HOST" "rm -f $remote_log" 2>/dev/null
   
   echo "[$timestamp] Automated run completed"
 }
@@ -339,7 +346,7 @@ function ssh_get_logs() {
     echo "========================================="
   } >> "$local_log_file"
   
-  if sshpass -p "$SSH_PASS" ssh "$SSH_HOST" "cat $remote_log_path" >> "$local_log_file" 2>/dev/null; then
+  if _ssh "$SSH_HOST" "cat $remote_log_path" >> "$local_log_file" 2>/dev/null; then
     echo "[$timestamp] Logs appended to $local_log_file"
   else
     echo "ERROR: Could not retrieve logs from $remote_log_path"
@@ -510,32 +517,38 @@ echo ""
 
 # Detect which SSH method to use
 function get_ssh_cmd() {
+    local J=""
+    [ -n "$SSH_JUMP" ] && J="-J $SSH_JUMP "
     if [ -n "$SSH_PASS" ]; then
-        echo "sshpass -p '$SSH_PASS' ssh $SSH_HOST"
+        echo "sshpass -p '$SSH_PASS' ssh ${J}$SSH_HOST"
     elif [ -n "$SSH_KEY" ]; then
-        echo "ssh -i '$SSH_KEY' $SSH_HOST"
+        echo "ssh -i '$SSH_KEY' ${J}$SSH_HOST"
     else
-        echo "ssh $SSH_HOST"
+        echo "ssh ${J}$SSH_HOST"
     fi
 }
 
 function get_scp_cmd() {
+    local J=""
+    [ -n "$SSH_JUMP" ] && J=" -J $SSH_JUMP"
     if [ -n "$SSH_PASS" ]; then
-        echo "sshpass -p '$SSH_PASS' scp"
+        echo "sshpass -p '$SSH_PASS' scp${J}"
     elif [ -n "$SSH_KEY" ]; then
-        echo "scp -i '$SSH_KEY'"
+        echo "scp -i '$SSH_KEY'${J}"
     else
-        echo "scp"
+        echo "scp${J}"
     fi
 }
 
 function get_rsync_cmd() {
+    local J=""
+    [ -n "$SSH_JUMP" ] && J=" -J $SSH_JUMP"
     if [ -n "$SSH_PASS" ]; then
-        echo "sshpass -p '$SSH_PASS' rsync"
+        echo "sshpass -p '$SSH_PASS' rsync -e 'ssh${J}'"
     elif [ -n "$SSH_KEY" ]; then
-        echo "rsync -e 'ssh -i $SSH_KEY'"
+        echo "rsync -e 'ssh -i $SSH_KEY${J}'"
     else
-        echo "rsync"
+        echo "rsync -e 'ssh${J}'"
     fi
 }
 
@@ -977,9 +990,9 @@ END
 echo ""
 
 function ssh_login_with_pass(){
-    sshpass -p "$SSH_PASS" ssh "$SSH_HOST"
+    _ssh "$SSH_HOST"
 }
 
 function ssh_login_with_key(){
-    ssh -i "$SSH_KEY" "$SSH_HOST"
+    ssh -i "$SSH_KEY" ${SSH_JUMP:+-J "$SSH_JUMP"} "$SSH_HOST"
 }
